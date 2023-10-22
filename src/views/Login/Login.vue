@@ -68,7 +68,7 @@ const doLogin = async () => {
     loginInProgress.value = false
   }).catch((error) => {
     console.log("Erro no login:", error.code, error.message);
-    if (error.code == "auth/invalid-email") {
+    if (error.code == "auth/invalid-email" || error.code == "auth/invalid-login-credentials") {
       errorOnLoginAttempt.value = true
       errorMessage.value = "Login ou senha incorretos"
     }
