@@ -14,7 +14,17 @@ import { ref, onMounted  } from 'vue';
 const apppStore = useAppStore()
 console.log('app.vue')
 onMounted(() => {
-  console.log("Componente montado!");
+  console.log("Componente montado!", );
+
+  if (auth.currentUser) {
+    console.log("Usuário está logado:", auth.currentUser);
+    apppStore.setCurrentUser(auth.currentUser);
+    apppStore.setIsLogged(true);
+  } else {
+    console.log("Usuário não está logado.");
+    apppStore.setCurrentUser({});
+    apppStore.setIsLogged(false);
+  }
 });
 
 onAuthStateChanged(auth, (user) => {
