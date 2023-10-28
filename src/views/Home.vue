@@ -1,39 +1,44 @@
 <template>
-  <!-- <HelloWorld /> -->
   <v-row>
     <v-col class="d-flex flex-column" :cols="5">
       <span>Testes sinalização</span>
       <v-btn color="info" @click="createRoomBtn">create-room</v-btn>
-      <v-btn color="warning" @click="lock=true">lock</v-btn>
     </v-col>
     <v-col :cols="5" class="d-flex flex-column">
       <span>Salas criadas</span>
       <v-col v-for="room in rooms" :key="room.id" class="room-container">
         <span>{{ room.id }}</span>
         <v-btn @click="joinRoomBtn(room)">Participar</v-btn>
-
       </v-col>
     </v-col>
     <v-col :cols="12" id="videos">
-
     </v-col>
   </v-row>
 </template>
 
 <script setup>
-  import { createRoom, getAndWatchRooms, joinRoom, watchRoom, getConfiguration, saveUserSignal, saveReadyUser, STATUS } from './signalingAPI'
-  import { ref, onMounted  } from 'vue';
+  import { createRoom, getAndWatchRooms, joinRoom, watchRoom, getConfiguration, saveUserSignal, saveReadyUser, STATUS, closeConnection } from './signalingAPI'
+  import { ref, onMounted, onBeforeUnmount   } from 'vue';
   import { useAppStore } from '@/store/app'
 
   const appStore = useAppStore()
 
-
-  import HelloWorld from '@/components/HelloWorld.vue'
   let rooms = ref({});
   let localStream = {}
   let peers = {}
-  let lock = false
+  let currentRoom = ''
   let alreadyConnected = false
+
+  const handleBeforeUnloada = (event) => {
+    // Encerrar a conexão peer
+    const peersList = Object.keys(peers)
+    if (peersList.length > 0) {
+      for (let i = 0; i < peersList.length; i++) {
+        peers[peersList[i]].destroy()
+      }
+      closeConnection(currentRoom, {signal: null, participant: appStore.currentUser.uid})
+    }
+  };
   onMounted(() => {
     console.log("[Home] Componente montado!");
 
@@ -41,8 +46,15 @@
       rooms.value = newRooms;
     };
 
+    window.addEventListener('beforeunload', handleBeforeUnloada);
     getAndWatchRooms(updatedRooms);
+    
   });
+
+  onBeforeUnmount(() => {
+    window.removeEventListener('beforeunload', handleBeforeUnloada);
+  })
+
   const joinRoomBtn = async (room) => {
     navigator.mediaDevices.getUserMedia({ 
     audio: true,
@@ -56,10 +68,6 @@
       showLocalVideoPreview(stream)
       await saveReadyUser(room)
       watchRoom(room.id, async (updatedRoom) => {
-        if (lock) {
-          return;
-        }
-        console.log('aloco')
         if (updatedRoom.currentState === STATUS.USER_READY_FOR_CONNECTION ) {
 
           const readyUsers = JSON.parse(updatedRoom.readyUsers);
@@ -74,44 +82,47 @@
               stream: localStream,
               channelName: "messenger"
             })
-            console.log('aqui passa')
             peers[readyUser].on('signal', (data) => {
               // webRTC offer, webRTC Answer (SDP information), ice candidates
               const signalData = {
                 signal: data,
                 participant: appStore.currentUser.uid
               }
-
-              
-              // wss.signalPeerData(signalData)
               saveUserSignal(updatedRoom, signalData)
             })
           
             peers[readyUser].on('data', (data) => {
-              // const messageData = JSON.parse(data)
-              // appendNewMessage(messageData)
-          
+              console.log("data", data)
             })
-          
+
+            peers[readyUser].on('close', (data) => {
+              console.log('close: ', data)
+            })
+
+            peers[readyUser].on('error', (data) => {
+              console.log('error', data)
+            })
             peers[readyUser].on('stream', (stream) => {
-              console.log('new stream detected')
               addStream(stream, readyUser)
-              // streams = [...streams, stream]
             })
             await saveReadyUser(room)
           }
         } else if (updatedRoom.currentState === STATUS.STARTING_CONNECTION) {
           const signal = (updatedRoom.signals)
-          console.log('chega isso: ', signal)
-          // const signal = signals[signals.length - 1]
-          // console.log("participante:  ", signal.participant, "Sinal: ", signal)
-          // console.log("e tem o que aqui? ",  peers[signal.participant])
           peers[signal.participant].signal(signal.signal)
           if (signal.signal.type === 'answer') {
             alreadyConnected = true
+            currentRoom = room.id
             await joinRoom(room)
           }
 
+        } else if (updatedRoom.currentState === STATUS.CLOSING_CONNECTION) {
+          const signal = updatedRoom.signals
+          if (peers[signal.participant]) {
+            removeStream(signal.participant)
+            peers[signal.participant].destroy()
+            delete peers[signal.participant]
+          }
         }
       })
     }).catch (err => {
@@ -123,13 +134,11 @@
   
   const createRoomBtn = async () => {
     const room = await createRoom()
+    currentRoom = room.id
     watchRoom(room.id, async (updatedRoom) => {
       if (updatedRoom.currentState === STATUS.USER_READY_FOR_CONNECTION ) {
         const readyUsers = JSON.parse(updatedRoom.readyUsers);
         const readyUser = readyUsers[readyUsers.length - 1]
-        // const participants = JSON.parse(updatedRoom.participants)
-        // const participant = participants[participants.length - 1]
-        console.log("Compara ai: ", readyUser, appStore.currentUser.uid)
         if (!peers.hasOwnProperty(readyUser) && readyUser !== appStore.currentUser.uid && !peers[readyUser]) {
           console.log(`[WATCH ROOM]: New user added`)
           const configuration = getConfiguration()
@@ -140,40 +149,47 @@
             stream: localStream,
             channelName: "messenger"
           })
-          console.log('aqui passa')
           peers[readyUser].on('signal', (data) => {
-            // webRTC offer, webRTC Answer (SDP information), ice candidates
             const signalData = {
               signal: data,
               participant: appStore.currentUser.uid
             }
-            // wss.signalPeerData(signalData)
             saveUserSignal(updatedRoom, signalData)
           })
         
           peers[readyUser].on('data', (data) => {
-            // const messageData = JSON.parse(data)
-            // appendNewMessage(messageData)
-        
+            console.log("data", data)
           })
         
           peers[readyUser].on('stream', (stream) => {
-            console.log('new stream detected')
             addStream(stream, readyUser)
-            // streams = [...streams, stream]
           })
-          
+
+          peers[readyUser].on('close', (data) => {
+            console.log('close: ', data)
+          })
+
+          peers[readyUser].on('error', (data) => {
+            console.log('error', data)
+          })
           await saveReadyUser(updatedRoom)
         }
       } else if (updatedRoom.currentState === STATUS.STARTING_CONNECTION) {
         const signal = (updatedRoom.signals)
-        // const signal = signals[signals.length - 1]
         peers[signal.participant].signal(signal.signal)
         alreadyConnected=true
         if (signal.type === 'answer') {
           alreadyConnected = true
         }
-      }
+      } else if (updatedRoom.currentState === STATUS.CLOSING_CONNECTION) {
+          const signal = updatedRoom.signals
+          console.log(peers)
+          if (peers[signal.participant]) {
+            removeStream(signal.participant)
+            peers[signal.participant].destroy()
+            delete peers[signal.participant]
+          }
+        }
     })
 
     navigator.mediaDevices.getUserMedia({ 
@@ -194,13 +210,11 @@
   }
 
   const showLocalVideoPreview = (stream) => {
-    // show local video preview
     const videoContainer = document.getElementById("videos")
     const videoElement = document.createElement('video')
     videoElement.setAttribute('controls', true);
     videoElement.autoplay = true
     videoElement.muted = true
-    // videoElement.muted = false
     videoElement.srcObject = stream
 
     videoElement.onloadedmetadata = () => {
@@ -210,13 +224,11 @@
   }
 
   const addStream = (stream, userId) => {
-    // show local video preview
     const videoContainer = document.getElementById("videos")
     const videoElement = document.createElement('video')
     videoElement.setAttribute('controls', true);
     videoElement.autoplay = true
     videoElement.muted = true
-    // videoElement.muted = false
     videoElement.srcObject = stream
     videoElement.id = `${userId}-video`
 
@@ -226,8 +238,18 @@
     videoContainer.appendChild(videoElement)
   }
 
-
-  // console.log('Daqui eu recebo assim: ', rooms)
+  const removeStream = (userId) => {
+    try {
+      const videoContainer = document.getElementById("videos")
+      const videoElement = document.getElementById(`${userId}-video`)
+      const tracks = videoElement.srcObject.getTracks()
+      tracks.forEach(t => t.stop())
+      videoElement.srcObject = null
+      videoContainer.removeChild(videoElement)
+    } catch (e) {
+      console.error("Error removing stream ", e)
+    }
+  }
 
 </script>
 
