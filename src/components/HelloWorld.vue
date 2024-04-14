@@ -24,7 +24,7 @@
               start
             />
 
-            Components
+            {{selectedItem}}
           </v-btn>
         </v-col>
 
@@ -71,5 +71,10 @@
 </template>
 
 <script setup>
+
+defineProps({
+  selectedItem: String,
+})
+
   //
 </script>
