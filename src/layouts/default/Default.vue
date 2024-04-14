@@ -11,7 +11,7 @@
             v-for="(item, i) in store.getFriends"
             :key="i"
             :value="item"
-            @click="(event) => setItem(item.Name)"
+            @click="(event) => setItem(item)"
             prepend-avatar="https://cdn.vuetifyjs.com/images/john.png"
           >
             <v-list-item-title v-text="item.Name"></v-list-item-title>
@@ -46,7 +46,8 @@ import { useAppStore } from '../../store/app';
 const store = useAppStore();
 
 function setItem(item) {
-  selectedItem.value = item
+  store.setActiveFriend(item)
+  selectedItem.value = item.Name
 }
 
 const selectedItem = ref("");

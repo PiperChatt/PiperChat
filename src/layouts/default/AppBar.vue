@@ -2,12 +2,29 @@
   <v-app-bar density="compact" order="-1">
     <div class="main-search tw-flex tw-row-auto tw-grow tw-justify-center tw-h-full">
       <v-text-field class="inputBox" label="Find a friend :(" single-line hide-details v-model="query"
-          @keyup.enter="executeQuery"
-          dense solo></v-text-field>
+        @keyup.enter="executeQuery" dense solo></v-text-field>
     </div>
-    <div class="tw-flex tw-row-auto">
-      <h2 class="tw-pl-5">Amigos</h2>
-      <v-divider vertical class="tw-pl-5"></v-divider>
+    <div class="tw-flex tw-justify-between tw-flex-grow">
+
+      <div>
+        <div v-if="!store.activeFriend.Name">
+          <h2 class="tw-pl-5">Amigos</h2>
+          <v-divider vertical class="tw-pl-5"></v-divider>
+        </div>
+
+        <div v-else class="userMessage tw-flex">
+          <v-avatar :image="store.activeFriend.avatar" size="30"></v-avatar>
+          <div class="tw-flex tw-flex-col">
+            <span class="tw-font-bold tw-ml-2 tw-mt-1">{{ store.activeFriend.Name }}</span>
+          </div>
+          <v-divider vertical class="tw-pl-5"></v-divider>
+        </div>
+      </div>
+
+      <div class="tw-flex ">
+        <v-icon @click="() => {}" size="28" class="tw-mr-5" icon="mdi-phone-in-talk"></v-icon>
+        <v-icon @click="() => {}" size="28" class="tw-mr-5" icon="mdi-video"></v-icon>
+      </div>
     </div>
   </v-app-bar>
 </template>
@@ -43,6 +60,5 @@ function executeQuery() {
   max-width: 240px !important;
   background-color: #2c2d31 !important;
 }
-
 </style>
 //1e1f22
