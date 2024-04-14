@@ -8,13 +8,13 @@
           nav
         >
           <v-list-item
-            v-for="(item, i) in items"
+            v-for="(item, i) in store.getFriends"
             :key="i"
             :value="item"
-            @click="(event) => setItem(item.name)"
+            @click="(event) => setItem(item.Name)"
             prepend-avatar="https://cdn.vuetifyjs.com/images/john.png"
           >
-            <v-list-item-title v-text="item.name"></v-list-item-title>
+            <v-list-item-title v-text="item.Name"></v-list-item-title>
           </v-list-item>
         </v-list>
         <v-list
@@ -50,13 +50,6 @@ function setItem(item) {
 }
 
 const selectedItem = ref("");
-
-let items = [
-        { name: 'Gedor'},
-        { name: 'Camila'},
-        { name: 'Anderson'},
-        { name: 'Dorini'}
-      ]
 
 </script>
 

@@ -4,12 +4,12 @@
       <div class="list-container fill-height">
         <v-text-field v-if="selectedItem" class="inputBox" label="Type a message" single-line hide-details
           @keyup.enter="sendNewMessage" rounded dense solo append-icon="" v-model="message"></v-text-field>
-        <div v-for="(a, b) in store.getMessages(selectedItem).slice().reverse()" :key="a">
-          <div class="userMessage tw-flex" v-if="('Me' in a)">
+        <div v-for="(chatMessage, i) in store.getMessages(selectedItem).slice().reverse()" :key="chatMessage">
+          <div class="userMessage tw-flex" v-if="('Me' in chatMessage)">
             <v-avatar :image="store.currentUser.avatar" size="45"></v-avatar>
             <div class="tw-flex tw-flex-col">
               <span class="tw-font-bold">{{ store.currentUser.userName }}</span>
-              <span>{{ a["Me"] }}</span>
+              <span>{{ chatMessage["Me"] }}</span>
             </div>
 
           </div>
@@ -17,7 +17,7 @@
             <v-avatar image="https://cdn.vuetifyjs.com/images/john-smirk.png" size="45"></v-avatar>
             <div class="tw-flex tw-flex-col">
               <span class="tw-font-bold">{{ selectedItem }}</span>
-              <span>{{ a["Them"] }}</span>
+              <span>{{ chatMessage["Them"] }}</span>
             </div>
           </div>
         </div>
@@ -53,7 +53,6 @@ const store = useAppStore()
 
 
 <style scoped>
-/* Create a class that does a padding on the span text for me and them and also space the v-avatar vertically */
 span {
   padding-left: 15px;
   padding-bottom: 2px;
@@ -72,18 +71,8 @@ span {
   margin-top: 20px;
 }
 
-/*
-.message-container {
-  display: flex;
-  flex-direction: column-reverse;
-  overflow-y: auto;
-  height: 100%;
-  margin-top: auto;
-} */
-
 .list-container {
   display: flex;
   flex-direction: column-reverse;
-  /* Optional: define a fixed height and enable scrolling */
 }
 </style>

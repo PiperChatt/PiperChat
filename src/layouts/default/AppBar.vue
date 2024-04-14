@@ -1,9 +1,9 @@
 <template>
   <v-app-bar density="compact" order="-1">
     <div class="main-search tw-flex tw-row-auto tw-grow tw-justify-center tw-h-full">
-      <div class="tw-text-white tw-bg-zinc-800 tw-w-8/12 tw-h-3/4 tw-m-auto">
-        <v-input></v-input>
-      </div>
+      <v-text-field class="inputBox" label="Find a friend :(" single-line hide-details v-model="query"
+          @keyup.enter="executeQuery"
+          dense solo></v-text-field>
     </div>
     <div class="tw-flex tw-row-auto">
       <h2 class="tw-pl-5">Amigos</h2>
@@ -14,12 +14,23 @@
 
 <script setup>
 import { useLayout } from 'vuetify'
+import { useAppStore } from '../../store/app';
+import { ref } from 'vue'
 
-const { getLayoutItem } = useLayout()
+const query = ref();
 
-function print() {
-  alert(JSON.stringify(getLayoutItem("drawer"), null, 2))
+const store = useAppStore();
+
+function executeQuery() {
+  store.setQuery(query.value)
 }
+
+// const { getLayoutItem } = useLayout()
+
+// function print() {
+//   alert(JSON.stringify(getLayoutItem("drawer"), null, 2))
+// }
+
 </script>
 
 
