@@ -37,7 +37,7 @@ export const useAppStore = defineStore("app", {
       if (userName in this.messages) {
         this.messages[userName].push({ Me: message });
       } else {
-        this.messages[userName] = [message];
+        this.messages[userName] = [userName == this.currentUserName ? { Me: message } : { Them: message }];
       }
     },
     removeMessage(userName, message) {
@@ -47,6 +47,7 @@ export const useAppStore = defineStore("app", {
     },
     getMessages(userName) {
       if (!(userName in this.messages)) return [];
+      console.log(`tá voltando isso: `, this.messages[userName])
 
       return this.messages[userName];
     },
