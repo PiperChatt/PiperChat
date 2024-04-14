@@ -11,7 +11,7 @@ import router from '../router'
 
 export function registerPlugins (app) {
   app
+    .use(pinia)
     .use(vuetify)
     .use(router)
-    .use(pinia)
 }

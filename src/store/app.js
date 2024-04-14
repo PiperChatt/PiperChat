@@ -17,6 +17,7 @@ export const useAppStore = defineStore("app", {
       avatar:
         "https://miro.medium.com/v2/resize:fit:500/0*xkJgg-6HskYrQ3N7.jpeg",
     },
+    isLogged: true,
     friends: {
       list: [
         { Name: "Gedor", avatar: "https://cdn.vuetifyjs.com/images/john.png" },
@@ -55,6 +56,12 @@ export const useAppStore = defineStore("app", {
     setActiveFriend(friend) {
       this.activeFriend = friend;
     },
+    setIsLogged(value) {
+      this.isLogged = value;
+    },
+    setCurrentUser(value) {
+      this.currentUser = value;
+    }
   },
   getters: {
     getFriends(state) {
