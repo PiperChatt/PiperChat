@@ -60,6 +60,7 @@ export const useAppStore = defineStore("app", {
       this.isLogged = value;
     },
     setCurrentUser(value) {
+      console.log(value)
       this.currentUser = value;
     }
   },

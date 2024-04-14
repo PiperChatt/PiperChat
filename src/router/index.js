@@ -5,17 +5,6 @@ const routes = [
   {
     path: '/',
     component: () => import('@/layouts/default/Default.vue')
-  },
-  {
-    path: '/layout',
-    component: () => import('@/layouts/default/Default.vue'),
-    children: [
-      {
-        path: '',
-        name: 'Layout',
-        component: () => import('@/views/LayoutPage.vue'),
-      },
-    ],
   }
 ]
 
