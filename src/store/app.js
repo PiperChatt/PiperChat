@@ -61,7 +61,10 @@ export const useAppStore = defineStore("app", {
     },
     setCurrentUser(value) {
       console.log(value)
-      this.currentUser = value;
+      this.currentUser = {
+        ...this.currentUser,
+        ...value,
+      };
     }
   },
   getters: {

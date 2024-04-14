@@ -59,7 +59,6 @@ const selectedItem = ref("");
   background-color: #2c2d31;
 }
 
-/* Create a class that position the myUser at the bottom of the .main-drawer */
 .MyUser {
   position: absolute;
   bottom: 0;

@@ -6,8 +6,8 @@
     </div>
     <div class="tw-flex tw-justify-between tw-flex-grow">
 
-      <div>
-        <div v-if="!store.activeFriend.Name">
+      <div class="tw-ml-2">
+        <div v-if="!store.activeFriend.Name" class="tw-flex">
           <h2 class="tw-pl-5">Amigos</h2>
           <v-divider vertical class="tw-pl-5"></v-divider>
         </div>
@@ -21,7 +21,7 @@
         </div>
       </div>
 
-      <div class="tw-flex ">
+      <div v-if="store.activeFriend.Name" class="tw-flex">
         <v-icon @click="() => {}" size="28" class="tw-mr-5" icon="mdi-phone-in-talk"></v-icon>
         <v-icon @click="() => {}" size="28" class="tw-mr-5" icon="mdi-video"></v-icon>
       </div>
