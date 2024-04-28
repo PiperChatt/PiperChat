@@ -7,7 +7,7 @@
     <div class="tw-flex tw-justify-between tw-flex-grow">
 
       <div class="tw-ml-2">
-        <div v-if="!store.activeFriend.Name" class="tw-flex">
+        <div v-if="!store.activeFriend.displayName" class="tw-flex">
           <h2 class="tw-pl-5">Amigos</h2>
           <v-divider vertical class="tw-pl-5"></v-divider>
         </div>
@@ -15,15 +15,15 @@
         <div v-else class="userMessage tw-flex">
           <v-avatar :image="store.activeFriend.avatar" size="30"></v-avatar>
           <div class="tw-flex tw-flex-col">
-            <span class="tw-font-bold tw-ml-2 tw-mt-1">{{ store.activeFriend.Name }}</span>
+            <span class="tw-font-bold tw-ml-2 tw-mt-1">{{ store.activeFriend.displayName }}</span>
           </div>
           <v-divider vertical class="tw-pl-5"></v-divider>
         </div>
       </div>
 
-      <div v-if="store.activeFriend.Name" class="tw-flex">
-        <v-icon @click="() => {}" size="28" class="tw-mr-5" icon="mdi-phone-in-talk"></v-icon>
-        <v-icon @click="() => {}" size="28" class="tw-mr-5" icon="mdi-video"></v-icon>
+      <div v-if="store.activeFriend.displayName" class="tw-flex">
+        <v-icon @click="() => { }" size="28" class="tw-mr-5" icon="mdi-phone-in-talk"></v-icon>
+        <v-icon @click="() => { }" size="28" class="tw-mr-5" icon="mdi-video"></v-icon>
       </div>
     </div>
   </v-app-bar>

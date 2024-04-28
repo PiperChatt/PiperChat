@@ -6,12 +6,11 @@
           @keyup.enter="sendNewMessage" rounded dense solo append-icon="" v-model="message"></v-text-field>
         <div v-for="(chatMessage, i) in store.getMessages(selectedItem).slice().reverse()" :key="chatMessage">
           <div class="userMessage tw-flex" v-if="('Me' in chatMessage)">
-            <v-avatar :image="store.currentUser.avatar" size="45"></v-avatar>
+            <v-avatar :image="store.currentUser.photoURL" size="45"></v-avatar>
             <div class="tw-flex tw-flex-col">
-              <span class="tw-font-bold">{{ store.currentUser.userName }}</span>
+              <span class="tw-font-bold">{{ store.currentUser.displayName }}</span>
               <span>{{ chatMessage["Me"] }}</span>
             </div>
-
           </div>
           <div class="userMessage  tw-flex" v-else>
             <v-avatar image="https://cdn.vuetifyjs.com/images/john-smirk.png" size="45"></v-avatar>

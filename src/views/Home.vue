@@ -20,6 +20,7 @@
   import { createRoom, getAndWatchRooms, joinRoom, watchRoom, getConfiguration, saveUserSignal, saveReadyUser, STATUS, closeConnection } from './signalingAPI'
   import { ref, onMounted, onBeforeUnmount   } from 'vue';
   import { useAppStore } from '@/store/app'
+  import SimplePeer from 'simple-peer';
 
   const appStore = useAppStore()
 
@@ -33,8 +34,8 @@
     // Encerrar a conexão peer
     const peersList = Object.keys(peers)
     if (peersList.length > 0) {
-      for (let i = 0; i < peersList.length; i++) {
-        peers[peersList[i]].destroy()
+      for (const element of peersList) {
+        peers[element].destroy()
       }
       closeConnection(currentRoom, {signal: null, participant: appStore.currentUser.uid})
     }
@@ -48,7 +49,7 @@
 
     window.addEventListener('beforeunload', handleBeforeUnloada);
     getAndWatchRooms(updatedRooms);
-    
+
   });
 
   onBeforeUnmount(() => {
@@ -56,12 +57,12 @@
   })
 
   const joinRoomBtn = async (room) => {
-    navigator.mediaDevices.getUserMedia({ 
+    navigator.mediaDevices.getUserMedia({
     audio: true,
     video: {
       width: '480',
       height: '360'
-    } 
+    }
     }).then(async stream => {
       console.log('successfuly received local stream: ', stream.getAudioTracks().length)
       localStream = stream
@@ -75,8 +76,8 @@
           if (!peers.hasOwnProperty(readyUser) && readyUser !== appStore.currentUser.uid && !peers[readyUser]) {
             console.log(`[WATCH ROOM]: A user is ready for connection`, readyUser)
             const configuration = getConfiguration()
-  
-            peers[readyUser] = new window.SimplePeer({
+
+            peers[readyUser] = new SimplePeer({
               initiator: !alreadyConnected,
               config: configuration,
               stream: localStream,
@@ -90,7 +91,7 @@
               }
               saveUserSignal(updatedRoom, signalData)
             })
-          
+
             peers[readyUser].on('data', (data) => {
               console.log("data", data)
             })
@@ -129,9 +130,9 @@
       console.log('error occurred when triyng to get an access to local stream')
       console.log(err)
     })
-    
+
   }
-  
+
   const createRoomBtn = async () => {
     const room = await createRoom()
     currentRoom = room.id
@@ -142,7 +143,7 @@
         if (!peers.hasOwnProperty(readyUser) && readyUser !== appStore.currentUser.uid && !peers[readyUser]) {
           console.log(`[WATCH ROOM]: New user added`)
           const configuration = getConfiguration()
-  
+
           peers[readyUser] = new window.SimplePeer({
             initiator: false,
             config: configuration,
@@ -156,11 +157,11 @@
             }
             saveUserSignal(updatedRoom, signalData)
           })
-        
+
           peers[readyUser].on('data', (data) => {
             console.log("data", data)
           })
-        
+
           peers[readyUser].on('stream', (stream) => {
             addStream(stream, readyUser)
           })
@@ -192,12 +193,12 @@
         }
     })
 
-    navigator.mediaDevices.getUserMedia({ 
+    navigator.mediaDevices.getUserMedia({
     audio: true,
     video: {
       width: '480',
       height: '360'
-    } 
+    }
    }).then(stream => {
     console.log('successfuly received local stream: ', stream.getAudioTracks().length)
     localStream = stream
