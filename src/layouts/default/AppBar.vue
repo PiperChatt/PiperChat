@@ -23,7 +23,7 @@
 
       <div v-if="store.activeFriend.Name" class="tw-flex">
         <v-icon @click="() => {}" size="28" class="tw-mr-5" icon="mdi-phone-in-talk"></v-icon>
-        <v-icon @click="() => {}" size="28" class="tw-mr-5" icon="mdi-video"></v-icon>
+        <v-icon @click="initiateCall" size="28" class="tw-mr-5" icon="mdi-video"></v-icon>
       </div>
     </div>
   </v-app-bar>
@@ -31,22 +31,32 @@
 
 <script setup>
 import { useLayout } from 'vuetify'
-import { useAppStore } from '../../store/app';
+import { useAppStore } from '@/store/app';
 import { ref } from 'vue'
-
+import { startVideoCall } from '@/scripts/callAPI';
 const query = ref();
 
 const store = useAppStore();
+
+const callUnsubscribeVar = null;
 
 function executeQuery() {
   store.setQuery(query.value)
 }
 
-// const { getLayoutItem } = useLayout()
+function initiateCall() {
+  startVideoCall(watchCall, callUnsubscribeVar);
+}
 
-// function print() {
-//   alert(JSON.stringify(getLayoutItem("drawer"), null, 2))
-// }
+function watchCall(call) {
+  if (call.callAccepted) {
+    store.setIncommingCallInfo({...call, userCalling: store.currentUser, userCalled: store.activeFriend});
+    store.setCallingAsInactive();
+    store.setCallActive();
+  }
+
+}
+
 
 </script>
 

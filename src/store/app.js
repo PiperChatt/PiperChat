@@ -17,12 +17,14 @@ export const useAppStore = defineStore("app", {
       avatar:
         "https://miro.medium.com/v2/resize:fit:500/0*xkJgg-6HskYrQ3N7.jpeg",
     },
+    isInCall: false,
+    isCalling: false,
     isLogged: true,
     friends: {
       list: [
-        { Name: "Gedor", avatar: "https://cdn.vuetifyjs.com/images/john.png" },
+        { Name: "Gedor", avatar: "https://cdn.vuetifyjs.com/images/john.png", uid: "hq9nUq2EPLNPNIiscY8IlmddQJR2" },
         { Name: "Camila", avatar: "https://cdn.vuetifyjs.com/images/john.png"  },
-        { Name: "Anderson", avatar: "https://cdn.vuetifyjs.com/images/john.png"  },
+        { Name: "Anderson", avatar: "https://cdn.vuetifyjs.com/images/john.png", uid: "shnDjlTiwRdDhe9xDGzIgLDZAJ32"  },
         { Name: "Dorini", avatar: "https://cdn.vuetifyjs.com/images/john.png"  },
       ],
       searchQuery: "",
@@ -30,7 +32,10 @@ export const useAppStore = defineStore("app", {
     activeFriend: {
       Name: "",
       avatar: "https://cdn.vuetifyjs.com/images/john.png",
+      // uid: "hq9nUq2EPLNPNIiscY8IlmddQJR2"
+      uid: "shnDjlTiwRdDhe9xDGzIgLDZAJ32"
     },
+    incommingCallInfo: null
   }),
   actions: {
     addMessage(message, userName) {
@@ -47,7 +52,6 @@ export const useAppStore = defineStore("app", {
     },
     getMessages(userName) {
       if (!(userName in this.messages)) return [];
-      console.log(`tá voltando isso: `, this.messages[userName])
 
       return this.messages[userName];
     },
@@ -66,6 +70,21 @@ export const useAppStore = defineStore("app", {
         ...this.currentUser,
         ...value,
       };
+    },
+    setCallActive() {
+      this.isInCall = true;
+    },
+    setCallingAsActive() {
+      this.isCalling = true;
+    },
+    setCallingAsInactive() {
+      this.isCalling = false;
+    },
+    setCallInactive() {
+      this.isInCall = false;
+    },
+    setIncommingCallInfo(incommingCallObj) {
+      this.incommingCallInfo = incommingCallObj ? incommingCallObj : null;
     }
   },
   getters: {
@@ -78,5 +97,8 @@ export const useAppStore = defineStore("app", {
         );
       });
     },
+    getVideoCallStatus() {
+      return this.isInCall;
+    }
   },
 });
