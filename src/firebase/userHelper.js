@@ -58,6 +58,22 @@ export async function findUserByEmail(userDbRef, email) {
   return data;
 }
 
+export async function getUserInfoByUID(uid) {
+  const dbRef = ref(db);
+  let user = null;
+  try {
+    user = await get(child(dbRef, `users/${uid}`));
+    if (user.exists()) {
+      return user.val();
+    } else {
+      return null;
+    }
+  } catch (error) {
+    console.error('Error getting collection data:', error);
+    return null;
+  }
+}
+
 export async function getFriendsList(userId) {
   try {
     const friendsRef = ref(db, `users/${userId}/friends`);

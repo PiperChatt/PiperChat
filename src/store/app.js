@@ -19,6 +19,9 @@ export const useAppStore = defineStore("app", {
       ],
     },
     currentUser: {},
+    isInCall: false,
+    isCalling: false,
+    incommingCallInfo: null,
     isLogged: false,
     friends: {
       list: [],
@@ -113,6 +116,21 @@ export const useAppStore = defineStore("app", {
 
       this.$reset();
     },
+    setCallActive() {
+      this.isInCall = true;
+    },
+    setCallingAsActive() {
+      this.isCalling = true;
+    },
+    setCallingAsInactive() {
+      this.isCalling = false;
+    },
+    setCallInactive() {
+      this.isInCall = false;
+    },
+    setIncommingCallInfo(incommingCallObj) {
+      this.incommingCallInfo = incommingCallObj ? incommingCallObj : null;
+    }
   },
   getters: {
     getFriends(state) {
@@ -124,5 +142,8 @@ export const useAppStore = defineStore("app", {
           .includes(this.friends.searchQuery.toLowerCase());
       });
     },
+    getVideoCallStatus() {
+      return this.isInCall;
+    }
   },
 });
