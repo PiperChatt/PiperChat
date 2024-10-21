@@ -73,6 +73,10 @@ export const watchRoom = (roomId, updatedRoom) => {
   const dataRef = ref(db, `room/${roomId}`)
   onValue(dataRef, (snapshot) => {
     const room = snapshot.val()
+    if (!room) {
+      console.log('couldnt find room');
+      return;
+    }
     if (room.targets === '*' || room.targets.includes(appStore.currentUser.uid)) {
       console.log(`Room ${roomId} updated`, room)
       updatedRoom(room)

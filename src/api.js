@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const serverApi = 'http://localhost:5002/api'
+const serverApi = 'http://0.0.0.0:5002/api'
 
 
 export const getTURNCredentials = async () => {

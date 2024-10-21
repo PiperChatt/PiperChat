@@ -37,13 +37,15 @@
   </v-main>
 </template>
 
-<script setup>
+<script setup lang="ts">
 
 import { useAppStore } from '../../store/app';
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { defineProps, reactive, toRefs } from "vue";
 import { watchRoom, joinRoom, saveUserSignal, getConfiguration, saveReadyUser, STATUS, closeConnection } from '@/scripts/signalingAPI';
 import { hangUpCurrentCall } from '@/scripts/callAPI';
+// import SimplePeer from 'simple-peer/simplepeer.min.js';
+import SimplePeer from 'simple-peer';
 
 const props = defineProps({
   selectedItem: String,
@@ -59,16 +61,20 @@ onBeforeUnmount(() => {
 const { selectedItem } = toRefs(props);
 
 let alreadyConnected = false;
-let localStream = {}
-let peers = {}
+let localStream: MediaStream = {}
+let peers: { [key: string]: SimplePeer.SimplePeer } = {}
 
 const message = ref();
 const userVideoLoaded = ref(false);
 
 function sendNewMessage() {
   if (!message.value) return
-  store.addMessage(message.value, selectedItem.value)
-  message.value = ''
+
+  if (alreadyConnected) {
+
+    store.addMessage(message.value, selectedItem.value)
+    message.value = ''
+  }
 }
 
 const store = useAppStore()
@@ -85,41 +91,41 @@ const handleBeforeUnload = (event) => {
 };
 watch(
   () => store.isInCall,
-  (status) => {
-    if (status) {
-      // the user that was accepted the call are the initiator
-      if (store.incommingCallInfo.callerUID != store.currentUser.uid) {
-        navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: {
-            width: '480',
-            height: '360'
-          }
-        }).then(async stream => {
-          localStream = stream
-          console.log('successfuly received local stream: ')
-          await saveReadyUser({ id: store.incommingCallInfo.roomId })
-          watchAsInitiator();
-        }).catch(err => {
-          console.error('error occurred when triyng to get an access to local stream')
-          console.error(err)
-        })
-      } else {
-        watchCallAsNotInitator();
-        navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: {
-            width: '480',
-            height: '360'
-          }
-        }).then(stream => {
-          console.log('successfuly received local stream: ')
-          localStream = stream
-        }).catch(err => {
-          console.error('error occurred when triyng to get an access to local stream')
-          console.error(err)
-        })
-      }
+  (isInCall) => {
+    if (!isInCall) return;
+
+    // the user that was accepted the call are the initiator
+    if (store.incommingCallInfo.callerUID != store.currentUser.uid) {
+      navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: {
+          width: 480,
+          height: 360
+        }
+      }).then(async stream => {
+        localStream = stream
+        console.log('successfuly received local stream: ')
+        await saveReadyUser({ id: store.incommingCallInfo.roomId })
+        watchAsInitiator();
+      }).catch(err => {
+        console.error('error occurred when triyng to get an access to local stream')
+        console.error(err)
+      })
+    } else {
+      watchCallAsNotInitator();
+      navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: {
+          width: 480,
+          height: 360
+        }
+      }).then(stream => {
+        console.log('successfuly received local stream: ')
+        localStream = stream
+      }).catch(err => {
+        console.error('error occurred when triyng to get an access to local stream')
+        console.error(err)
+      })
     }
   },
   { immediate: true }
@@ -132,13 +138,14 @@ function watchCallAsNotInitator() {
       if (!peers.hasOwnProperty(readyUser) && readyUser !== store.currentUser.uid && !peers[readyUser]) {
         console.log(`[WATCH ROOM]: New user added`)
         const configuration = getConfiguration()
-        peers[readyUser] = new window.SimplePeer({
+        peers[readyUser] = new SimplePeer({
           initiator: false,
           config: configuration,
           stream: localStream,
-          channelName: "messenger"
+          channelName: "messenger",
         })
         peers[readyUser].on('signal', (data) => {
+          console.log(data);
           const signalData = {
             signal: data,
             participant: store.currentUser.uid
@@ -188,7 +195,7 @@ function watchAsInitiator() {
       if (!peers.hasOwnProperty(readyUser) && readyUser !== store.currentUser.uid && !peers[readyUser]) {
         console.log(`[WATCH ROOM]: A user is ready for connection`, readyUser)
         const configuration = getConfiguration()
-        peers[readyUser] = new window.SimplePeer({
+        peers[readyUser] = new SimplePeer({
           initiator: !alreadyConnected,
           config: configuration,
           stream: localStream,
