@@ -82,7 +82,10 @@ const doLogin = async () => {
 
 async function updateProfileOnRegister(user) {
   try {
-    await updateProfile(user, { displayName: user.displayName ?? user.email.split("@")[0], photoURL: getProfilePhoto(user.photoURL, user.displayName, user.email) })
+    await updateProfile(user, {
+      displayName: user.displayName ?? user.email.split("@")[0],
+      photoURL: getProfilePhoto(user.photoURL, user.displayName, user.email)
+    })
   } catch (error) {
     console.log("User created but failed to updateProfile.", error);
   }

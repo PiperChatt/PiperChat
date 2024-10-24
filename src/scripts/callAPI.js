@@ -11,7 +11,6 @@ const store = useAppStore();
 const sounds = useSoundStore();
 
 
-
 async function notifyCallToUser() {
   const userRef = ref(db, `users/${store.activeFriend.uid}`);
   const ring = await runTransaction(userRef, (userData) => {

@@ -44,8 +44,8 @@ import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { defineProps, reactive, toRefs } from "vue";
 import { watchRoom, joinRoom, saveUserSignal, getConfiguration, saveReadyUser, STATUS, closeConnection } from '@/scripts/signalingAPI';
 import { hangUpCurrentCall } from '@/scripts/callAPI';
-// import SimplePeer from 'simple-peer/simplepeer.min.js';
-import SimplePeer from 'simple-peer';
+import SimplePeer from 'simple-peer/simplepeer.min.js';
+// import SimplePeer from 'simple-peer';
 
 const props = defineProps({
   selectedItem: String,
