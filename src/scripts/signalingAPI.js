@@ -1,4 +1,4 @@
-import { ref, set, onValue, update } from 'firebase/database';
+import { ref, set, onValue, update, get, child } from 'firebase/database';
 import { db } from '@/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { useAppStore } from '@/store/app'
@@ -47,12 +47,12 @@ export const getConfiguration = () => {
   }
 }
 
-export const createRoom = async () => {
+export const createRoom = async (rID) => {
   try {
-    const roomId= uuidv4()
+    const roomId = rID || uuidv4()
     const userRef = ref(db, `room/${roomId}`)
     const userData = {
-      name: "Sala teste",
+      name: rID,
       participants: JSON.stringify([appStore.currentUser.uid]),
       id: roomId,
       readyUsers: JSON.stringify([]),
@@ -96,9 +96,27 @@ export const saveUserSignal = async (room, signal) => {
   }, 500)
 }
 
+async function getRoomById(id) {
+  const dbRef = ref(db);
+  let room = null;
+  try {
+    room = await get(child(dbRef, `room/${id}`));
+    if (room.exists()) {
+      return room.val();
+    } else {
+      return null;
+    }
+  } catch (error) {
+    console.error('Error getting collection data:', error);
+    return null;
+  }
+
+}
+
 export const saveReadyUser = async (room) => {
   const roomRef = ref(db, `room/${room.id}`)
-  let readyVector = JSON.parse(room.readyUsers)
+  const roomData = await getRoomById(room.id);
+  let readyVector = JSON.parse(roomData.readyUsers)
   readyVector.push(appStore.currentUser.uid)
   setTimeout(async () => {
     await update(roomRef, {

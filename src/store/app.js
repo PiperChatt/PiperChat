@@ -3,6 +3,12 @@ import { defineStore } from "pinia";
 
 export const useAppStore = defineStore("app", {
   state: () => ({
+    listeningEvents: {
+      friends: {
+        active: false,
+        unsubscribe: [],
+      },
+    },
     messages: {
       Gedor: [{ Me: "Hello John" }, { Them: "How are you Evan?" }],
       Dorini: [
@@ -12,19 +18,13 @@ export const useAppStore = defineStore("app", {
         { Them: "How are you Jhonsss?" },
       ],
     },
-    currentUser: {
-      userName: "Evan You",
-      avatar:
-        "https://miro.medium.com/v2/resize:fit:500/0*xkJgg-6HskYrQ3N7.jpeg",
-    },
-    isLogged: true,
+    currentUser: {},
+    isInCall: false,
+    isCalling: false,
+    incommingCallInfo: null,
+    isLogged: false,
     friends: {
-      list: [
-        { Name: "Gedor", avatar: "https://cdn.vuetifyjs.com/images/john.png" },
-        { Name: "Camila", avatar: "https://cdn.vuetifyjs.com/images/john.png"  },
-        { Name: "Anderson", avatar: "https://cdn.vuetifyjs.com/images/john.png"  },
-        { Name: "Dorini", avatar: "https://cdn.vuetifyjs.com/images/john.png"  },
-      ],
+      list: [],
       searchQuery: "",
     },
     activeFriend: {
@@ -33,11 +33,42 @@ export const useAppStore = defineStore("app", {
     },
   }),
   actions: {
+    isEventActive(event) {
+      if (event in this.listeningEvents) {
+        return this.listeningEvents[event].active;
+      }
+
+      return false;
+    },
+    registerEvent(event, callbacks) {
+      if (event in this.listeningEvents) {
+        this.listeningEvents[event].active = true;
+        for (const element of this.listeningEvents[event].unsubscribe) {
+          element();
+        }
+        this.listeningEvents[event].unsubscribe = [...callbacks];
+      }
+    },
+    clearEvent(event) {
+      if (event in this.listeningEvents) {
+        console.log("Clearing event: ", event);
+        this.listeningEvents[event].active = false;
+
+        console.log(
+          "Unsubscribing events: ",
+          this.listeningEvents[event].unsubscribe.length
+        );
+        for (const element of this.listeningEvents[event].unsubscribe) {
+          element();
+        }
+        this.listeningEvents[event].unsubscribe = [];
+      }
+    },
     addMessage(message, userName) {
       if (userName in this.messages) {
         this.messages[userName].push({ Me: message });
       } else {
-        this.messages[userName] = [userName == this.currentUserName ? { Me: message } : { Them: message }];
+        this.messages[userName] = [{ Me: message }];
       }
     },
     removeMessage(userName, message) {
@@ -47,7 +78,7 @@ export const useAppStore = defineStore("app", {
     },
     getMessages(userName) {
       if (!(userName in this.messages)) return [];
-      console.log(`tá voltando isso: `, this.messages[userName])
+      console.log(`tá voltando isso: `, this.messages[userName]);
 
       return this.messages[userName];
     },
@@ -57,15 +88,48 @@ export const useAppStore = defineStore("app", {
     setActiveFriend(friend) {
       this.activeFriend = friend;
     },
-    setIsLogged(value) {
-      this.isLogged = value;
+    setFriendsList(friends) {
+      this.friends.list = friends;
     },
-    setCurrentUser(value) {
-      console.log(value)
-      this.currentUser = {
-        ...this.currentUser,
-        ...value,
-      };
+    addFriend(friend) {
+      this.friends.list.push(friend);
+    },
+    removeFriend(friendUid) {
+      this.friends.list = this.friends.list.filter(
+        (friend) => friend.uid !== friendUid
+      );
+    },
+    login(user) {
+      if (user) {
+        this.isLogged = true;
+        this.currentUser = user;
+      }
+    },
+    logoff() {
+      this.isLogged = false;
+      this.currentUser = {};
+      try {
+        this.clearEvent("friends");
+      } catch (error) {
+        console.error("Error trying to clear events", error);
+      }
+
+      this.$reset();
+    },
+    setCallActive() {
+      this.isInCall = true;
+    },
+    setCallingAsActive() {
+      this.isCalling = true;
+    },
+    setCallingAsInactive() {
+      this.isCalling = false;
+    },
+    setCallInactive() {
+      this.isInCall = false;
+    },
+    setIncommingCallInfo(incommingCallObj) {
+      this.incommingCallInfo = incommingCallObj ? incommingCallObj : null;
     }
   },
   getters: {
@@ -73,10 +137,13 @@ export const useAppStore = defineStore("app", {
       if (this.friends.searchQuery === "") return state.friends.list;
 
       return state.friends.list.filter((friend) => {
-        return friend.Name.toLowerCase().includes(
-          this.friends.searchQuery.toLowerCase()
-        );
+        return friend.displayName
+          .toLowerCase()
+          .includes(this.friends.searchQuery.toLowerCase());
       });
     },
+    getVideoCallStatus() {
+      return this.isInCall;
+    }
   },
 });
