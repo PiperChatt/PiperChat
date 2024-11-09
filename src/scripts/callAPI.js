@@ -20,7 +20,7 @@ async function notifyCallToUser() {
       // Se os dados não existirem, inicialize-os
       return { callRoom: { ringing: true, inCall: false, callerUID: store.currentUser.uid, roomId: roomId } };
     } else if (!userData.callRoom ) {
-      return { ...userData, callRoom: { ringing: true, roomId: roomId } }
+      return { ...userData, callRoom: { ringing: true, inCall: false, callerUID: store.currentUser.uid, roomId: roomId } }
     } else if(userData.callRoom && !userData.callRoom.ringing && !userData.callRoom.inCall) {
       userData.callRoom.ringing = true;
       userData.callRoom.callerUID = store.currentUser.uid;
@@ -105,7 +105,7 @@ export const watchIncommingCall = (update) => {
   const dataRef = ref(db, `users/${store.currentUser.uid}/callRoom`)
   onValue(dataRef, async (snapshot) => {
     const call = snapshot.val()
-    if (call.ringing) {
+    if (call && call.ringing) {
       const userCalling = await getUserInfoByUID(call.callerUID);
       delete userCalling.callRoom;
       store.setIncommingCallInfo({...call, userCalling, userCalled: store.currentUser});
