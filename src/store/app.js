@@ -1,8 +1,14 @@
 // Utilities
 import { defineStore } from "pinia";
+import { HubConnectionBuilder } from "@microsoft/signalr";
+import SimplePeer from "simple-peer/simplepeer.min.js";
 
 export const useAppStore = defineStore("app", {
   state: () => ({
+    /**
+     * @type {import('@microsoft/signalr').HubConnection}
+     * */
+    signalRConnection: {},
     listeningEvents: {
       friends: {
         active: false,
@@ -24,15 +30,106 @@ export const useAppStore = defineStore("app", {
     incommingCallInfo: null,
     isLogged: false,
     friends: {
+      dict: {},
       list: [],
+      rooms: {},
       searchQuery: "",
     },
     activeFriend: {
       Name: "",
       avatar: "https://cdn.vuetifyjs.com/images/john.png",
+      displayName: "",
     },
+    signalQueue: {
+      pendingFriendsToCheck: [],
+      signals: {},
+    },
+    peers: {},
   }),
   actions: {
+    listenForFriendStatus(friendId) {
+      this.signalRConnection.invoke("ListenForFriendStatus", friendId);
+    },
+    webRtcSignal(friendId, data) {
+      console.log("WebRTC Signal: ", data);
+      this.signalRConnection.invoke("WebRtcSignal", friendId, data);
+    },
+    sendMessage(friendId, message) {
+      this.peers[friendId].send(message);
+    },
+    createSignalRConnection() {
+      this.signalRConnection = new HubConnectionBuilder()
+        .withUrl(
+          `http://localhost:5285/signal?UserID=${this.currentUser.uid}`,
+          { withCredentials: false }
+        )
+        .withAutomaticReconnect()
+        .build();
+
+      this.signalRConnection.on(
+        "WebRtcSignalReceived",
+        (friendId, signalData) => {
+          const signalDataParsed = JSON.parse(signalData);
+          console.log("Signal received from: ", friendId, signalDataParsed);
+          try {
+            this.signalQueue.pendingFriendsToCheck.push(friendId);
+
+            if (friendId in this.signalQueue.signals) {
+              this.signalQueue.signals[friendId].push(signalDataParsed);
+            } else {
+              this.signalQueue.signals[friendId] = [signalDataParsed];
+            }
+
+            if (!(friendId in this.peers)) {
+              console.log("Creating new peer");
+              this.peers[friendId] = new SimplePeer({
+                initiator: false,
+              });
+              this.peers[friendId].on("signal", (data) => {
+                this.webRtcSignal(friendId, JSON.stringify(data));
+              });
+
+              this.peers[friendId].on("data", (data) => {
+                let friend = this.friends.list.find((friend) => friend.data.uid === friendId);
+                console.log("Friend: ", friend);
+                this.addReceivedMessage(data, friend.data.displayName);
+
+                console.log("Data received: ", data);
+              });
+
+              this.peers[friendId].on("connect", () => {
+                console.log("Connected to peer");
+              });
+            }
+            this.peers[friendId].signal(signalDataParsed);
+          } catch (error) {
+            console.error("Error handling signal data", error);
+          }
+        }
+      );
+
+      this.signalRConnection.on("FriendsStatus", (friendsStatus) => {
+        let friendStatus = JSON.parse(friendsStatus);
+
+        for (const friend of friendStatus) {
+          if (friend.FriendId in this.friends.dict) {
+            // console.log("Friend already in list");
+            this.friends.dict[friend.FriendId].status = friend.Status;
+          }
+        }
+
+        // console.log("Friends status updated: ", this.friends.list);
+      });
+
+      this.signalRConnection
+        .start()
+        .then(() => {
+          console.log("SignalR connection started");
+        })
+        .catch((error) => {
+          console.log("Error starting SignalR connection", error);
+        });
+    },
     isEventActive(event) {
       if (event in this.listeningEvents) {
         return this.listeningEvents[event].active;
@@ -70,6 +167,15 @@ export const useAppStore = defineStore("app", {
       } else {
         this.messages[userName] = [{ Me: message }];
       }
+
+      this.sendMessage(this.activeFriend.uid, message);
+    },
+    addReceivedMessage(message, userName) {
+      if (userName in this.messages) {
+        this.messages[userName].push({ Them: message });
+      } else {
+        this.messages[userName] = [{ Them: message }];
+      }
     },
     removeMessage(userName, message) {
       this.messages[userName] = this.messages[userName].filter(
@@ -92,17 +198,25 @@ export const useAppStore = defineStore("app", {
       this.friends.list = friends;
     },
     addFriend(friend) {
-      this.friends.list.push(friend);
+      const friendData = {
+        data: friend,
+        status: "offline",
+      }
+      this.friends.list.push(friendData);
+      this.friends.dict[friend.uid] = friendData;
     },
     removeFriend(friendUid) {
       this.friends.list = this.friends.list.filter(
-        (friend) => friend.uid !== friendUid
+        (friend) => friend.data.uid !== friendUid
       );
     },
     login(user) {
+      console.log("User logged: ", user);
+
       if (user) {
         this.isLogged = true;
         this.currentUser = user;
+        this.createSignalRConnection();
       }
     },
     logoff() {
@@ -129,21 +243,21 @@ export const useAppStore = defineStore("app", {
       this.isInCall = false;
     },
     setIncommingCallInfo(incommingCallObj) {
-      this.incommingCallInfo = incommingCallObj ? incommingCallObj : null;
-    }
+      this.incommingCallInfo = incommingCallObj || null;
+    },
   },
   getters: {
     getFriends(state) {
       if (this.friends.searchQuery === "") return state.friends.list;
 
       return state.friends.list.filter((friend) => {
-        return friend.displayName
+        return friend.data.displayName
           .toLowerCase()
           .includes(this.friends.searchQuery.toLowerCase());
       });
     },
     getVideoCallStatus() {
       return this.isInCall;
-    }
+    },
   },
 });

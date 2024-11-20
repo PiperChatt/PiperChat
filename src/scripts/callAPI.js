@@ -5,11 +5,17 @@ import { ref, runTransaction, onValue, update, remove } from 'firebase/database'
 import { getUserInfoByUID } from '@/firebase/userHelper';
 import { v4 as uuidv4 } from 'uuid';
 import { createRoom } from './signalingAPI';
+import { generateRoomKey } from '@/firebase/userHelper';
 
 
 const store = useAppStore();
 const sounds = useSoundStore();
 
+async function startWebRtcSignaling(friend)
+{
+  const roomKey = generateRoomKey(store.currentUser.uid, store.activeFriend.uid);
+  const roomRef = ref(db, `rooms/${roomKey}`);
+}
 
 async function notifyCallToUser() {
   const userRef = ref(db, `users/${store.activeFriend.uid}`);
@@ -30,11 +36,7 @@ async function notifyCallToUser() {
       return ;
     }
   }).then((result) => {
-    if (result.committed) {
-      return true;
-    } else {
-      return false;
-    }
+    return !!(result.committed);
   }).catch((error) => {
     console.error('Transaction failed: ', error);
     return false;

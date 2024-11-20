@@ -13,9 +13,9 @@
         </v-col>
       </div>
       <div class="list-container ma-3">
-        <v-text-field v-if="selectedItem" class="inputBox" label="Type a message" single-line hide-details
+        <v-text-field v-if="selectedFriend" class="inputBox" label="Type a message" single-line hide-details
           @keyup.enter="sendNewMessage" rounded dense solo append-icon="" v-model="message"></v-text-field>
-        <div v-for="(chatMessage, i) in store.getMessages(selectedItem).slice().reverse()" :key="chatMessage">
+        <div v-for="(chatMessage, i) in store.getMessages(selectedFriend).slice().reverse()" :key="chatMessage">
           <div class="userMessage tw-flex" v-if="('Me' in chatMessage)">
             <v-avatar :image="store.currentUser.photoURL" size="45"></v-avatar>
             <div class="tw-flex tw-flex-col">
@@ -24,9 +24,9 @@
             </div>
           </div>
           <div class="userMessage  tw-flex" v-else>
-            <v-avatar image="https://cdn.vuetifyjs.com/images/john-smirk.png" size="45"></v-avatar>
+            <v-avatar :image="store.activeFriend.photoURL" size="45"></v-avatar>
             <div class="tw-flex tw-flex-col">
-              <span class="tw-font-bold">{{ selectedItem }}</span>
+              <span class="tw-font-bold">{{ selectedFriend }}</span>
               <span>{{ chatMessage["Them"] }}</span>
             </div>
           </div>
@@ -48,8 +48,88 @@ import SimplePeer from 'simple-peer/simplepeer.min.js';
 // import SimplePeer from 'simple-peer';
 
 const props = defineProps({
-  selectedItem: String,
+  selectedFriend: String,
 })
+
+const store = useAppStore()
+const { selectedFriend } = toRefs(props);
+
+watch(() => props.selectedFriend, (newVal) => {
+  console.log('selectedFriend', newVal)
+  createWebRtcConnection();
+})
+
+
+async function createWebRtcConnection() {
+  if (store.activeFriend.uid in store.peers) {
+    console.log('Peer already exists');
+    return;
+  }
+
+  console.log(store.friends.dict[store.activeFriend.uid]);
+
+  if (store.friends.dict[store.activeFriend.uid].status != 'online') {
+    console.log('Friend is not online');
+    watch(() => store.friends.dict[store.activeFriend.uid]?.status, (newStatus) => {
+      console.log('watching friendsDict');
+
+      if (newStatus == 'online') {
+        console.log('Friend is now online. Creating WebRtConnection');
+        createSimplePeerForActiveFriend();
+      } else {
+        console.log('Friend is still offline');
+      }
+    })
+    return;
+  }
+
+  createSimplePeerForActiveFriend();
+}
+
+function createSimplePeerForActiveFriend() {
+  const configuration = getConfiguration();
+
+  store.peers[store.activeFriend.uid] = new SimplePeer({
+    initiator: true,
+    config: configuration,
+    channelName: "messenger",
+  })
+
+  const peer = store.peers[store.activeFriend.uid];
+
+  peer.on('signal', (data) => {
+    console.log(`Signaling friend ${store.activeFriend.displayName}`);
+    store.webRtcSignal(store.activeFriend.uid, JSON.stringify(data));
+  })
+
+  peer.on('connect', () => {
+    console.log('connected');
+  })
+
+  peer.on('data', (data) => {
+    console.log(store.activeFriend);
+    console.log(store.friends.list);
+
+
+    let friend = store.friends.list.find(friend => friend.data.uid === store.activeFriend.uid);
+    console.log(friend);
+
+    store.addReceivedMessage(data, friend.data.displayName);
+
+    console.log("data", data)
+  })
+  peer.on('close', (data) => {
+    console.log('close: ', data)
+  })
+  peer.on('error', (data) => {
+    console.log('error', data)
+  })
+  peer.on('stream', (stream) => {
+    console.log('recebi a stream');
+    // addStream(stream, readyUser)
+    // userVideoLoaded.value = true;
+  })
+}
 
 onMounted(() => {
   window.addEventListener('beforeunload', handleBeforeUnload);
@@ -58,7 +138,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', handleBeforeUnload);
 })
 
-const { selectedItem } = toRefs(props);
 
 let alreadyConnected = false;
 let localStream: MediaStream = {}
@@ -69,26 +148,24 @@ const userVideoLoaded = ref(false);
 
 function sendNewMessage() {
   if (!message.value) return
-
-  if (alreadyConnected) {
-
-    store.addMessage(message.value, selectedItem.value)
+  if (store.activeFriend.uid in store.peers) {
+    store.addMessage(message.value, selectedFriend.value)
     message.value = ''
   }
 }
 
-const store = useAppStore()
 
 const handleBeforeUnload = (event) => {
   // Encerrar a conexão peer
   const peersList = Object.keys(peers)
   if (peersList.length > 0) {
-    for (let i = 0; i < peersList.length; i++) {
-      peers[peersList[i]].destroy()
+    for (const element of peersList) {
+      peers[element].destroy()
     }
     closeConnection(store.incommingCallInfo.roomId, { signal: null, participant: store.currentUser.uid })
   }
 };
+
 watch(
   () => store.isInCall,
   (isInCall) => {

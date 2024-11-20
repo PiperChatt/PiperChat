@@ -30,9 +30,17 @@
           </v-dialog>
 
 
-          <v-list-item v-for="(item, i) in store.getFriends" :key="i" :value="item" @click="(event) => setItem(item)"
-            :prepend-avatar="item.photoURL">
-            <v-list-item-title v-text="item.displayName"></v-list-item-title>
+          <v-list-item v-for="(friend, i) in store.getFriends" :key="i" :value="friend"
+            @click="(event) => setItem(friend.data)">
+            <template v-slot:prepend>
+              <div class="avatar-wrapper">
+                <v-avatar>
+                  <v-img :src="friend.data.photoURL" />
+                </v-avatar>
+                <div :class="['status-indicator', friend.status]"></div>
+              </div>
+            </template>
+            <v-list-item-title class="tw-ml-1" v-text="friend.data.displayName"></v-list-item-title>
           </v-list-item>
         </v-list>
         <v-list :lines="false" class="MyUser" density="compact" nav>
@@ -45,7 +53,7 @@
         </v-list>
       </v-navigation-drawer>
       <default-bar />
-      <default-view :selectedItem="selectedItem" />
+      <default-view :selectedFriend="selectedFriend" />
       <!-- Starting call dialog -->
       <v-dialog v-model="store.isCalling" max-width="500">
         <v-card title="Calling">
@@ -104,11 +112,13 @@ import { ref, onMounted } from 'vue'
 import { useAppStore } from '@/store/app';
 import { dismissInitiatedCall, watchIncommingCall, dismissIncommingCall, acceptCall } from '@/scripts/callAPI';
 
-const selectedItem = ref("");
+const selectedFriend = ref("");
 const incommingCall = ref(false);
 const store = useAppStore();
 
 const email = ref('');
+
+console.warn("IM HEEEEERE");
 
 if (!store.isEventActive("friends")) {
   listenForNewFriends(auth.currentUser.uid, store);
@@ -151,9 +161,9 @@ function onAcceptCallClick() {
 
 }
 
-function setItem(item) {
-  store.setActiveFriend(item)
-  selectedItem.value = item.displayName
+function setItem(friend) {
+  store.setActiveFriend(friend)
+  selectedFriend.value = friend.displayName
 }
 
 async function signOut() {
@@ -213,6 +223,31 @@ async function signOut() {
     transform: scale(1.8);
     opacity: 0;
   }
+}
+
+.avatar-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.status-indicator.online {
+  background-color: #43b581;
+  /* Green for online */
+}
+
+.status-indicator {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  border: 2px solid white;
+  border-radius: 50%;
+}
+
+.status-indicator.offline {
+  background-color: #747f8d;
+  /* Gray for offline */
 }
 
 .pulse::after {

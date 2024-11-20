@@ -6,10 +6,6 @@ const routes = [
     path: '/',
     component: () => import('@/layouts/default/Default.vue')
   },
-  {
-    path: '/gedor',
-    component: () => import('@/views/Home.vue')
-  }
 ]
 
 const router = createRouter({
