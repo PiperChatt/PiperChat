@@ -71,12 +71,6 @@ watch(() => store.friends.dict[store.activeFriend.uid]?.status, (newStatus) => {
   }
 })
 
-// watch(() => props.selectedFriend, (newVal) => {
-//   console.log('selectedFriend', newVal, store.activeFriend.uid)
-
-//   createWebRtcConnection();
-// })
-
 function isConnectionCreatedForActiveFriend() {
   return store.activeFriend.uid in store.peers;
 }
@@ -128,8 +122,6 @@ function createSimplePeerForActiveFriend() {
 
 onBeforeUnmount(() => {
   console.log('Unmounting');
-  statusWatcher?.();
-  // closeConnection();
 })
 
 const message = ref();

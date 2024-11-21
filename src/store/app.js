@@ -48,8 +48,20 @@ export const useAppStore = defineStore("app", {
     peers: {},
   }),
   actions: {
+    updateFriendsSatus() {
+      this.signalRConnection
+        .invoke("GetFriendsStatus")
+        .then((friendsStatus) => {
+          for (const friend of friendsStatus) {
+            if (friend.friendId in this.friends.dict) {
+              this.friends.dict[friend.friendId].status = friend.status;
+            }
+          }
+        });
+    },
     listenForFriendStatus(friendId) {
       this.signalRConnection.invoke("ListenForFriendStatus", friendId);
+      this.updateFriendsSatus();
     },
     webRtcSignal(friendId, data) {
       console.log("WebRTC Signal: ", data);
@@ -112,12 +124,10 @@ export const useAppStore = defineStore("app", {
       );
 
       this.signalRConnection.on("FriendsStatus", (friendsStatus) => {
-        let friendStatus = JSON.parse(friendsStatus);
-
-        for (const friend of friendStatus) {
-          if (friend.FriendId in this.friends.dict) {
+        for (const friend of friendsStatus) {
+          if (friend.friendId in this.friends.dict) {
             // console.log("Friend already in list");
-            this.friends.dict[friend.FriendId].status = friend.Status;
+            this.friends.dict[friend.friendId].status = friend.status;
           }
         }
 
