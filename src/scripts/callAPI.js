@@ -46,6 +46,7 @@ async function notifyCallToUser() {
 
 export async function startVideoCall(callWatcher, callUnsubscribeVar) {
   const successRinging = await notifyCallToUser();
+
   if (successRinging) {
     let audio = sounds.call;
     audio.currentTime = 0;

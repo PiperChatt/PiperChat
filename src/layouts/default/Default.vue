@@ -118,8 +118,6 @@ const store = useAppStore();
 
 const email = ref('');
 
-console.warn("IM HEEEEERE");
-
 if (!store.isEventActive("friends")) {
   listenForNewFriends(auth.currentUser.uid, store);
 }

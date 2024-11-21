@@ -40,7 +40,7 @@
 <script setup lang="ts">
 
 import { useAppStore } from '../../store/app';
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, WatchStopHandle } from 'vue'
 import { defineProps, reactive, toRefs } from "vue";
 import { watchRoom, joinRoom, saveUserSignal, getConfiguration, saveReadyUser, STATUS, closeConnection } from '@/scripts/signalingAPI';
 import { hangUpCurrentCall } from '@/scripts/callAPI';
@@ -54,36 +54,31 @@ const props = defineProps({
 const store = useAppStore()
 const { selectedFriend } = toRefs(props);
 
-watch(() => props.selectedFriend, (newVal) => {
-  console.log('selectedFriend', newVal)
-  createWebRtcConnection();
-})
+watch(() => store.friends.dict[store.activeFriend.uid]?.status, (newStatus) => {
+  const activeFriend = store.activeFriend.uid;
+  console.log('watching friendsDict', activeFriend);
 
-
-async function createWebRtcConnection() {
-  if (store.activeFriend.uid in store.peers) {
+  if (isConnectionCreatedForActiveFriend()) {
     console.log('Peer already exists');
     return;
   }
 
-  console.log(store.friends.dict[store.activeFriend.uid]);
-
-  if (store.friends.dict[store.activeFriend.uid].status != 'online') {
-    console.log('Friend is not online');
-    watch(() => store.friends.dict[store.activeFriend.uid]?.status, (newStatus) => {
-      console.log('watching friendsDict');
-
-      if (newStatus == 'online') {
-        console.log('Friend is now online. Creating WebRtConnection');
-        createSimplePeerForActiveFriend();
-      } else {
-        console.log('Friend is still offline');
-      }
-    })
-    return;
+  if (newStatus == 'online') {
+    console.log('Friend is now online. Creating WebRtConnection');
+    createSimplePeerForActiveFriend();
+  } else {
+    console.log('Friend is still offline');
   }
+})
 
-  createSimplePeerForActiveFriend();
+// watch(() => props.selectedFriend, (newVal) => {
+//   console.log('selectedFriend', newVal, store.activeFriend.uid)
+
+//   createWebRtcConnection();
+// })
+
+function isConnectionCreatedForActiveFriend() {
+  return store.activeFriend.uid in store.peers;
 }
 
 function createSimplePeerForActiveFriend() {
@@ -131,17 +126,11 @@ function createSimplePeerForActiveFriend() {
   })
 }
 
-onMounted(() => {
-  window.addEventListener('beforeunload', handleBeforeUnload);
-});
 onBeforeUnmount(() => {
-  window.removeEventListener('beforeunload', handleBeforeUnload);
+  console.log('Unmounting');
+  statusWatcher?.();
+  // closeConnection();
 })
-
-
-let alreadyConnected = false;
-let localStream: MediaStream = {}
-let peers: { [key: string]: SimplePeer.SimplePeer } = {}
 
 const message = ref();
 const userVideoLoaded = ref(false);
@@ -154,174 +143,12 @@ function sendNewMessage() {
   }
 }
 
-
-const handleBeforeUnload = (event) => {
-  // Encerrar a conexão peer
-  const peersList = Object.keys(peers)
-  if (peersList.length > 0) {
-    for (const element of peersList) {
-      peers[element].destroy()
-    }
-    closeConnection(store.incommingCallInfo.roomId, { signal: null, participant: store.currentUser.uid })
-  }
-};
-
-watch(
-  () => store.isInCall,
-  (isInCall) => {
-    if (!isInCall) return;
-
-    // the user that was accepted the call are the initiator
-    if (store.incommingCallInfo.callerUID != store.currentUser.uid) {
-      navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: {
-          width: 480,
-          height: 360
-        }
-      }).then(async stream => {
-        localStream = stream
-        console.log('successfuly received local stream: ')
-        await saveReadyUser({ id: store.incommingCallInfo.roomId })
-        watchAsInitiator();
-      }).catch(err => {
-        console.error('error occurred when triyng to get an access to local stream')
-        console.error(err)
-      })
-    } else {
-      watchCallAsNotInitator();
-      navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: {
-          width: 480,
-          height: 360
-        }
-      }).then(stream => {
-        console.log('successfuly received local stream: ')
-        localStream = stream
-      }).catch(err => {
-        console.error('error occurred when triyng to get an access to local stream')
-        console.error(err)
-      })
-    }
-  },
-  { immediate: true }
-);
-function watchCallAsNotInitator() {
-  watchRoom(store.incommingCallInfo.roomId, async (updatedRoom) => {
-    if (updatedRoom.currentState === STATUS.USER_READY_FOR_CONNECTION) {
-      const readyUsers = JSON.parse(updatedRoom.readyUsers);
-      const readyUser = readyUsers[readyUsers.length - 1]
-      if (!peers.hasOwnProperty(readyUser) && readyUser !== store.currentUser.uid && !peers[readyUser]) {
-        console.log(`[WATCH ROOM]: New user added`)
-        const configuration = getConfiguration()
-        peers[readyUser] = new SimplePeer({
-          initiator: false,
-          config: configuration,
-          stream: localStream,
-          channelName: "messenger",
-        })
-        peers[readyUser].on('signal', (data) => {
-          console.log(data);
-          const signalData = {
-            signal: data,
-            participant: store.currentUser.uid
-          }
-          saveUserSignal(updatedRoom, signalData)
-        })
-
-        peers[readyUser].on('data', (data) => {
-          console.log("data", data)
-        })
-
-        peers[readyUser].on('stream', (stream) => {
-          addStream(stream, readyUser)
-          userVideoLoaded.value = true;
-        })
-        peers[readyUser].on('close', (data) => {
-          console.log('close: ', data)
-        })
-        peers[readyUser].on('error', (data) => {
-          console.log('error', data)
-        })
-        await saveReadyUser(updatedRoom)
-      }
-    } else if (updatedRoom.currentState === STATUS.STARTING_CONNECTION) {
-      const signal = (updatedRoom.signals)
-      peers[signal.participant].signal(signal.signal)
-      alreadyConnected = true
-      if (signal.type === 'answer') {
-        alreadyConnected = true
-      }
-    } else if (updatedRoom.currentState === STATUS.CLOSING_CONNECTION) {
-      const signal = updatedRoom.signals
-      hangUp();
-      if (peers[signal.participant]) {
+/* TODO: Parar stream quando a chamada de video terminar.
         removeStream(signal.participant)
         peers[signal.participant].destroy()
         delete peers[signal.participant]
-      }
-    }
-  })
-}
-function watchAsInitiator() {
-  watchRoom(store.incommingCallInfo.roomId, async (updatedRoom) => {
-    if (updatedRoom.currentState === STATUS.USER_READY_FOR_CONNECTION) {
-      const readyUsers = JSON.parse(updatedRoom.readyUsers);
-      const readyUser = readyUsers[readyUsers.length - 1]
-      if (!peers.hasOwnProperty(readyUser) && readyUser !== store.currentUser.uid && !peers[readyUser]) {
-        console.log(`[WATCH ROOM]: A user is ready for connection`, readyUser)
-        const configuration = getConfiguration()
-        peers[readyUser] = new SimplePeer({
-          initiator: !alreadyConnected,
-          config: configuration,
-          stream: localStream,
-          channelName: "messenger"
-        })
-        peers[readyUser].on('signal', (data) => {
-          // webRTC offer, webRTC Answer (SDP information), ice candidates
-          const signalData = {
-            signal: data,
-            participant: store.currentUser.uid
-          }
-          saveUserSignal(updatedRoom, signalData)
-        })
+*/
 
-        peers[readyUser].on('data', (data) => {
-          console.log("data", data)
-        })
-        peers[readyUser].on('close', (data) => {
-          console.log('close: ', data)
-        })
-        peers[readyUser].on('error', (data) => {
-          console.log('error', data)
-        })
-        peers[readyUser].on('stream', (stream) => {
-          console.log('recebi a stream');
-          addStream(stream, readyUser)
-          userVideoLoaded.value = true;
-        })
-        await saveReadyUser({ id: store.incommingCallInfo.roomId })
-      }
-    } else if (updatedRoom.currentState === STATUS.STARTING_CONNECTION) {
-      const signal = (updatedRoom.signals)
-      peers[signal.participant].signal(signal.signal)
-      if (signal.signal.type === 'answer') {
-        alreadyConnected = true
-        currentRoom = room.id
-        await joinRoom(room)
-      }
-    } else if (updatedRoom.currentState === STATUS.CLOSING_CONNECTION) {
-      hangUp();
-      const signal = updatedRoom.signals
-      if (peers[signal.participant]) {
-        removeStream(signal.participant)
-        peers[signal.participant].destroy()
-        delete peers[signal.participant]
-      }
-    }
-  })
-}
 const showLocalVideoPreview = (stream) => {
   const videoContainer = document.getElementById("videos")
   const videoElement = document.createElement('video')
@@ -363,19 +190,16 @@ const removeStream = (userId) => {
   }
 }
 function freeCam() {
-  if (localStream) {
-    localStream.getTracks().forEach(track => {
+  if (store.mediaStream) {
+    store.mediaStream.getTracks().forEach(track => {
       track.stop();
     });
   }
 }
 function hangUp() {
-  handleBeforeUnload();
   freeCam();
   store.setCallInactive();
   userVideoLoaded.value = false;
-  alreadyConnected = false;
-  peers = {};
   hangUpCurrentCall();
 }
 </script>

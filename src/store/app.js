@@ -15,6 +15,7 @@ export const useAppStore = defineStore("app", {
         unsubscribe: [],
       },
     },
+    mediaStream: null,
     messages: {
       Gedor: [{ Me: "Hello John" }, { Them: "How are you Evan?" }],
       Dorini: [
@@ -90,7 +91,9 @@ export const useAppStore = defineStore("app", {
               });
 
               this.peers[friendId].on("data", (data) => {
-                let friend = this.friends.list.find((friend) => friend.data.uid === friendId);
+                let friend = this.friends.list.find(
+                  (friend) => friend.data.uid === friendId
+                );
                 console.log("Friend: ", friend);
                 this.addReceivedMessage(data, friend.data.displayName);
 
@@ -184,7 +187,6 @@ export const useAppStore = defineStore("app", {
     },
     getMessages(userName) {
       if (!(userName in this.messages)) return [];
-      console.log(`tá voltando isso: `, this.messages[userName]);
 
       return this.messages[userName];
     },
@@ -197,11 +199,38 @@ export const useAppStore = defineStore("app", {
     setFriendsList(friends) {
       this.friends.list = friends;
     },
+    setMediaStream(stream) {
+      this.mediaStream = stream;
+    },
+    async getMediaStream() {
+      try {
+        if (this.mediaStream) {
+          return this.mediaStream;
+        }
+
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: {
+            width: 480,
+            height: 360,
+          },
+        });
+
+        this.setMediaStream(mediaStream);
+        console.log("successfuly received local stream and saved on store.");
+      } catch (error) {
+        console.error(
+          "error occurred when triyng to get an access to local stream",
+          error
+        );
+        return null;
+      }
+    },
     addFriend(friend) {
       const friendData = {
         data: friend,
         status: "offline",
-      }
+      };
       this.friends.list.push(friendData);
       this.friends.dict[friend.uid] = friendData;
     },
