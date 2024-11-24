@@ -2,6 +2,8 @@
 import { defineStore } from "pinia";
 import { HubConnectionBuilder } from "@microsoft/signalr";
 import SimplePeer from "simple-peer/simplepeer.min.js";
+import { useSoundStore } from "@/store/sounds";
+
 
 export const useAppStore = defineStore("app", {
   state: () => ({
@@ -9,6 +11,7 @@ export const useAppStore = defineStore("app", {
      * @type {import('@microsoft/signalr').HubConnection}
      * */
     signalRConnection: {},
+    sounds: useSoundStore(),
     listeningEvents: {
       friends: {
         active: false,
@@ -26,7 +29,8 @@ export const useAppStore = defineStore("app", {
       ],
     },
     currentUser: {},
-    isInCall: false,
+    currentCallInfo: null,
+    eventQueue: [],
     isCalling: false,
     incommingCallInfo: null,
     isLogged: false,
@@ -68,7 +72,12 @@ export const useAppStore = defineStore("app", {
       this.signalRConnection.invoke("WebRtcSignal", friendId, data);
     },
     sendMessage(friendId, message) {
-      this.peers[friendId].send(message);
+      this.peers[friendId].send(
+        JSON.stringify({
+          type: "message",
+          data: message,
+        })
+      );
     },
     createSignalRConnection() {
       this.signalRConnection = new HubConnectionBuilder()
@@ -98,21 +107,50 @@ export const useAppStore = defineStore("app", {
               this.peers[friendId] = new SimplePeer({
                 initiator: false,
               });
-              this.peers[friendId].on("signal", (data) => {
+
+              const peer = this.peers[friendId];
+              peer.on("signal", (data) => {
                 this.webRtcSignal(friendId, JSON.stringify(data));
               });
 
-              this.peers[friendId].on("data", (data) => {
-                let friend = this.friends.list.find(
-                  (friend) => friend.data.uid === friendId
-                );
-                console.log("Friend: ", friend);
-                this.addReceivedMessage(data, friend.data.displayName);
+              peer.on("data", async (data) => {
+                const message = JSON.parse(data);
 
-                console.log("Data received: ", data);
+                if (message.type === "message") {
+                  let friend = this.friends.list.find(
+                    (friend) => friend.data.uid === friendId
+                  );
+
+                  this.addReceivedMessage(
+                    message.data,
+                    friend.data.displayName
+                  );
+                } else if (message.type === "startCall") {
+                  console.log("CALL");
+                  this.eventQueue.push({
+                    type: "startCall",
+                    data: {
+                      userCalling: this.friends.dict[friendId].data,
+                    },
+                  });
+                  await this.getMediaStream();
+                }
+
+                console.log("Data received: ", message);
               });
 
-              this.peers[friendId].on("connect", () => {
+              peer.on("stream", (stream) => {
+                console.log("recebi a stream");
+                this.eventQueue.push({
+                  type: "stream",
+                  data: {
+                    stream,
+                    userCalling: this.friends.dict[friendId].data,
+                  },
+                });
+              });
+
+              peer.on("connect", () => {
                 console.log("Connected to peer");
               });
             }
@@ -174,14 +212,15 @@ export const useAppStore = defineStore("app", {
         this.listeningEvents[event].unsubscribe = [];
       }
     },
-    addMessage(message, userName) {
+    addMessage(message, friend) {
+      const userName = friend.displayName;
       if (userName in this.messages) {
         this.messages[userName].push({ Me: message });
       } else {
         this.messages[userName] = [{ Me: message }];
       }
 
-      this.sendMessage(this.activeFriend.uid, message);
+      this.sendMessage(friend.uid, message);
     },
     addReceivedMessage(message, userName) {
       if (userName in this.messages) {
@@ -228,6 +267,7 @@ export const useAppStore = defineStore("app", {
 
         this.setMediaStream(mediaStream);
         console.log("successfuly received local stream and saved on store.");
+        return mediaStream;
       } catch (error) {
         console.error(
           "error occurred when triyng to get an access to local stream",
@@ -269,9 +309,6 @@ export const useAppStore = defineStore("app", {
 
       this.$reset();
     },
-    setCallActive() {
-      this.isInCall = true;
-    },
     setCallingAsActive() {
       this.isCalling = true;
     },
@@ -279,11 +316,17 @@ export const useAppStore = defineStore("app", {
       this.isCalling = false;
     },
     setCallInactive() {
-      this.isInCall = false;
+      this.currentCallInfo = null;
     },
-    setIncommingCallInfo(incommingCallObj) {
-      this.incommingCallInfo = incommingCallObj || null;
+    setActiveCall(friend) {
+      this.currentCallInfo = {
+        active: true,
+        friend,
+      };
     },
+    acceptCall() {
+      this.sounds.call.pause();
+    }
   },
   getters: {
     getFriends(state) {
@@ -296,7 +339,7 @@ export const useAppStore = defineStore("app", {
       });
     },
     getVideoCallStatus() {
-      return this.isInCall;
+      return !!this.currentCallInfo;
     },
   },
 });

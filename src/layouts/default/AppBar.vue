@@ -46,16 +46,9 @@ function executeQuery() {
 }
 
 function initiateCall() {
-  startVideoCall(watchCall, callUnsubscribeVar);
+  startVideoCall(store.activeFriend);
 }
 
-function watchCall(call) {
-  if (call.callAccepted) {
-    store.setIncommingCallInfo({ ...call, userCalling: store.currentUser, userCalled: store.activeFriend });
-    store.setCallingAsInactive();
-    store.setCallActive();
-  }
-}
 </script>
 
 

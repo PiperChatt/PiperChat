@@ -40,17 +40,15 @@
 <script setup lang="ts">
 
 import { useAppStore } from '../../store/app';
-import { ref, watch, onMounted, onBeforeUnmount, WatchStopHandle } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, WatchStopHandle, nextTick } from 'vue'
 import { defineProps, reactive, toRefs } from "vue";
 import { watchRoom, joinRoom, saveUserSignal, getConfiguration, saveReadyUser, STATUS, closeConnection } from '@/scripts/signalingAPI';
-import { hangUpCurrentCall } from '@/scripts/callAPI';
 import SimplePeer from 'simple-peer/simplepeer.min.js';
 // import SimplePeer from 'simple-peer';
 
 const props = defineProps({
   selectedFriend: String,
 })
-
 const store = useAppStore()
 const { selectedFriend } = toRefs(props);
 
@@ -77,35 +75,39 @@ function isConnectionCreatedForActiveFriend() {
 
 function createSimplePeerForActiveFriend() {
   const configuration = getConfiguration();
+  const currentFriend = store.activeFriend;
+  const currentFriendId = currentFriend.uid;
 
-  store.peers[store.activeFriend.uid] = new SimplePeer({
+  store.peers[currentFriendId] = new SimplePeer({
     initiator: true,
     config: configuration,
     channelName: "messenger",
   })
 
-  const peer = store.peers[store.activeFriend.uid];
+  const peer = store.peers[currentFriendId];
 
   peer.on('signal', (data) => {
-    console.log(`Signaling friend ${store.activeFriend.displayName}`);
-    store.webRtcSignal(store.activeFriend.uid, JSON.stringify(data));
+    console.log(`Signaling friend ${currentFriend.displayName}`);
+    store.webRtcSignal(currentFriendId, JSON.stringify(data));
   })
 
   peer.on('connect', () => {
     console.log('connected');
   })
 
-  peer.on('data', (data) => {
-    console.log(store.activeFriend);
-    console.log(store.friends.list);
+  peer.on('data', async (data) => {
+    const message = JSON.parse(data);
 
+    if (message.type === 'message') {
+      let friend = store.friends.list.find(friend => friend.data.uid === currentFriendId);
+      store.addReceivedMessage(message.data, friend.data.displayName);
+    } else if (message.type === 'callAccepted') {
+      console.log('callAccepted');
+      store.acceptCall();
+      store.peers[currentFriendId].addStream(await store.getMediaStream());
+    }
 
-    let friend = store.friends.list.find(friend => friend.data.uid === store.activeFriend.uid);
-    console.log(friend);
-
-    store.addReceivedMessage(data, friend.data.displayName);
-
-    console.log("data", data)
+    console.log("data", message)
   })
   peer.on('close', (data) => {
     console.log('close: ', data)
@@ -115,8 +117,7 @@ function createSimplePeerForActiveFriend() {
   })
   peer.on('stream', (stream) => {
     console.log('recebi a stream');
-    // addStream(stream, readyUser)
-    // userVideoLoaded.value = true;
+    addStream(stream, currentFriendId);
   })
 }
 
@@ -130,7 +131,7 @@ const userVideoLoaded = ref(false);
 function sendNewMessage() {
   if (!message.value) return
   if (store.activeFriend.uid in store.peers) {
-    store.addMessage(message.value, selectedFriend.value)
+    store.addMessage(message.value, store.activeFriend)
     message.value = ''
   }
 }
@@ -168,7 +169,9 @@ const addStream = (stream, userId) => {
     videoElement.play()
   }
   videoContainer.appendChild(videoElement)
+  userVideoLoaded.value = true;
 }
+
 const removeStream = (userId) => {
   try {
     const videoContainer = document.getElementById("videos")
@@ -181,6 +184,12 @@ const removeStream = (userId) => {
     console.error("Error removing stream ", e)
   }
 }
+defineExpose({
+  addStream
+})
+
+
+
 function freeCam() {
   if (store.mediaStream) {
     store.mediaStream.getTracks().forEach(track => {
@@ -188,11 +197,12 @@ function freeCam() {
     });
   }
 }
+
 function hangUp() {
   freeCam();
   store.setCallInactive();
   userVideoLoaded.value = false;
-  hangUpCurrentCall();
+
 }
 </script>
 
