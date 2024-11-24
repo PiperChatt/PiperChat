@@ -132,6 +132,7 @@ export const useAppStore = defineStore("app", {
                   this.eventQueue.push({
                     type: "startCall",
                     data: {
+                      // TODO: Quando o usuario acaba de ficar online e tem alguém ligando. O Objeto this.friends ainda não existe e da erro.
                       userCalling: this.friends.dict[friendId].data,
                     },
                   });
