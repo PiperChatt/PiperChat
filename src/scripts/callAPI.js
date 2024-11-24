@@ -25,9 +25,11 @@ async function startWebRtcSignaling(friend) {
 }
 
 function waitFor(millisec) {
-    return new Promise(resolve => {
-        setTimeout(() => { resolve('') }, millisec);
-    })
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve("");
+    }, millisec);
+  });
 }
 
 async function notifyCallToUserV2(friend) {
@@ -52,13 +54,17 @@ async function notifyCallToUserV2(friend) {
       }
     }
 
-    let x = setTimeout(() => {
-      if (!store.currentCallInfo?.accepted) {
-        audio.pause();
-        store.rejectCall(friend);
-        store.callRejected();
-      }
-    }, 10000, "callStart");
+    let x = setTimeout(
+      () => {
+        if (!store.currentCallInfo?.accepted) {
+          audio.pause();
+          store.rejectCall(friend);
+          store.callRejected();
+        }
+      },
+      10000,
+      "callStart"
+    );
 
     if (!store.timeouts["notifyCall"]) {
       store.timeouts["notifyCall"] = [];
@@ -73,21 +79,19 @@ async function notifyCallToUserV2(friend) {
   let timeout = 0;
   let waitTime = 1000;
 
-  while (timeout < 20000) {
+  while (timeout < 10000) {
     if (friendId in store.peers) {
-      store.peers[friendId].send(
-        JSON.stringify({
-          type: "startCall",
-          data: {},
-        })
-      );
-
-      break;
+      await notifyCallToUserV2(friend);
+      return;
     }
 
     await waitFor(waitTime);
     timeout += waitTime;
   }
+
+  audio.pause();
+  store.rejectCall(friend);
+  store.callRejected();
 }
 
 export async function startVideoCall(friend) {

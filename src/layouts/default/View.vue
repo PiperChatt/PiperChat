@@ -52,6 +52,7 @@ const props = defineProps({
 const store = useAppStore()
 const { selectedFriend } = toRefs(props);
 
+// TODO: O status de "Em chamada" é global. Então, quando troca de usuário, o vídeo vai permanecer na tela. Mudar esse estado para estar atrelado ao usuário selecionado.'
 watch(() => store.friends.dict[store.activeFriend.uid]?.status, (newStatus) => {
   const activeFriend = store.activeFriend.uid;
   console.log('watching friendsDict', activeFriend);

@@ -51,7 +51,7 @@ export const useAppStore = defineStore("app", {
     },
     peers: {},
     peersStreams: {},
-    timeouts: {}
+    timeouts: {},
   }),
   actions: {
     updateFriendsSatus() {
@@ -144,9 +144,12 @@ export const useAppStore = defineStore("app", {
                       userCalling: this.friends.dict[friendId].data,
                     },
                   });
-                } else if (message.type === 'callAccepted') {
+                } else if (message.type === "callAccepted") {
                   this.acceptCall();
-                  await this.addStreamToPeerConnection(this.friends.dict[friendId].data, await this.getMediaStream());
+                  await this.addStreamToPeerConnection(
+                    this.friends.dict[friendId].data,
+                    await this.getMediaStream()
+                  );
                 }
 
                 console.log("Data received: ", message);
@@ -283,7 +286,6 @@ export const useAppStore = defineStore("app", {
 
         console.log("Creating new media stream");
 
-
         this.mediaStreamLoading = true;
 
         const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -361,14 +363,18 @@ export const useAppStore = defineStore("app", {
       this.currentCallInfo.accepted = true;
     },
     rejectCall(friend) {
-      this.sounds.call.pause();
-      this.sounds.call.currentTime = 0;
-      this.peers[friend.uid].send(
-        JSON.stringify({
-          type: "callRejected",
-          data: {},
-        })
-      );
+      try {
+        this.sounds.call.pause();
+        this.sounds.call.currentTime = 0;
+        this.peers[friend.uid].send(
+          JSON.stringify({
+            type: "callRejected",
+            data: {},
+          })
+        );
+      } catch (error) {
+        console.error("Error rejecting call", error);
+      }
     },
     callRejected() {
       this.sounds.call.pause();
