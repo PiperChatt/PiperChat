@@ -146,6 +146,13 @@ watch(() => store.eventQueue[0], (event) => {
       console.log(friendView.value);
 
       friendView.value.addStream(event.data.stream, event.data.userCalling.uid);
+    } else if (event.type == 'callRejected') {
+      incommingCall.value = {
+        active: false,
+        userCalling: null,
+      }
+
+      friendView.value.friendHungUp(event.data.userCalling);
     }
 
     store.eventQueue.shift();
@@ -165,6 +172,7 @@ function newCall(userCalling) {
 // });
 
 function hangUpCall() {
+  store.rejectCall(incommingCall.value.userCalling);
   incommingCall.value = {
     active: false,
     userCalling: null,
@@ -172,11 +180,15 @@ function hangUpCall() {
 }
 
 async function onAcceptCallClick() {
-  setActiveFriend(incommingCall.value.userCalling);
-  store.setActiveCall(incommingCall.value.userCalling)
-  store.peers[incommingCall.value.userCalling.uid].addStream(await store.getMediaStream());
-  store.peers[incommingCall.value.userCalling.uid].send(JSON.stringify({ type: 'callAccepted' }));
-  hangUpCall();
+  const userCalling = incommingCall.value.userCalling;
+  setActiveFriend(userCalling);
+  store.setActiveCall(userCalling)
+  store.addStreamToPeerConnection(userCalling);
+  store.peers[userCalling.uid].send(JSON.stringify({ type: 'callAccepted' }));
+  incommingCall.value = {
+    active: false,
+    userCalling: null,
+  };
 }
 
 function setActiveFriend(friend) {

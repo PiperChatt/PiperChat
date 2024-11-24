@@ -104,7 +104,19 @@ function createSimplePeerForActiveFriend() {
     } else if (message.type === 'callAccepted') {
       console.log('callAccepted');
       store.acceptCall();
-      store.peers[currentFriendId].addStream(await store.getMediaStream());
+      await store.addStreamToPeerConnection(currentFriend);
+    } else if (message.type === "callRejected") {
+      console.log('callRejected');
+      await friendHungUp(currentFriend);
+    } else if (message.type === "startCall") {
+      console.log("CALL");
+      store.eventQueue.push({
+        type: "startCall",
+        data: {
+          userCalling: store.friends.dict[currentFriendId].data,
+        },
+      });
+      await store.getMediaStream();
     }
 
     console.log("data", message)
@@ -136,12 +148,6 @@ function sendNewMessage() {
   }
 }
 
-/* TODO: Parar stream quando a chamada de video terminar.
-        removeStream(signal.participant)
-        peers[signal.participant].destroy()
-        delete peers[signal.participant]
-*/
-
 const showLocalVideoPreview = (stream) => {
   const videoContainer = document.getElementById("videos")
   const videoElement = document.createElement('video')
@@ -158,6 +164,8 @@ const showLocalVideoPreview = (stream) => {
   videoContainer.appendChild(videoElement)
 }
 const addStream = (stream, userId) => {
+  console.log(store.getVideoCallStatus);
+
   const videoContainer = document.getElementById("videos")
   const videoElement = document.createElement('video')
   videoElement.setAttribute('controls', true);
@@ -184,9 +192,7 @@ const removeStream = (userId) => {
     console.error("Error removing stream ", e)
   }
 }
-defineExpose({
-  addStream
-})
+
 
 
 
@@ -195,14 +201,27 @@ function freeCam() {
     store.mediaStream.getTracks().forEach(track => {
       track.stop();
     });
+    store.mediaStream = null;
   }
 }
 
-function hangUp() {
+async function friendHungUp(friend) {
   freeCam();
   store.setCallInactive();
   userVideoLoaded.value = false;
+  store.callRejected();
+}
 
+defineExpose({
+  addStream,
+  friendHungUp
+})
+
+async function hangUp() {
+  freeCam();
+  store.setCallInactive();
+  userVideoLoaded.value = false;
+  store.rejectCall(store.activeFriend);
 }
 </script>
 

@@ -46,6 +46,26 @@ async function notifyCallToUserV2(friend) {
       })
     );
 
+    if (store.timeouts["notifyCall"]) {
+      for (let timeout of store.timeouts["notifyCall"]) {
+        clearTimeout(timeout);
+      }
+    }
+
+    let x = setTimeout(() => {
+      if (!store.currentCallInfo?.accepted) {
+        audio.pause();
+        store.rejectCall(friend);
+        store.callRejected();
+      }
+    }, 10000, "callStart");
+
+    if (!store.timeouts["notifyCall"]) {
+      store.timeouts["notifyCall"] = [];
+    }
+
+    store.timeouts["notifyCall"].push(x);
+
     console.log("Call notification sent to: ", friend);
     return;
   }
@@ -73,9 +93,9 @@ async function notifyCallToUserV2(friend) {
 export async function startVideoCall(friend) {
   console.log(friend);
 
+  store.getMediaStream();
   store.setActiveCall(friend);
   await notifyCallToUserV2(friend);
-  await store.getMediaStream();
 }
 
 function deleteCallRoom() {

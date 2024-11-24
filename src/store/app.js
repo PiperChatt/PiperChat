@@ -4,7 +4,6 @@ import { HubConnectionBuilder } from "@microsoft/signalr";
 import SimplePeer from "simple-peer/simplepeer.min.js";
 import { useSoundStore } from "@/store/sounds";
 
-
 export const useAppStore = defineStore("app", {
   state: () => ({
     /**
@@ -19,6 +18,7 @@ export const useAppStore = defineStore("app", {
       },
     },
     mediaStream: null,
+    mediaStreamLoading: false,
     messages: {
       Gedor: [{ Me: "Hello John" }, { Them: "How are you Evan?" }],
       Dorini: [
@@ -50,6 +50,8 @@ export const useAppStore = defineStore("app", {
       signals: {},
     },
     peers: {},
+    peersStreams: {},
+    timeouts: {}
   }),
   actions: {
     updateFriendsSatus() {
@@ -134,6 +136,17 @@ export const useAppStore = defineStore("app", {
                     },
                   });
                   await this.getMediaStream();
+                } else if (message.type === "callRejected") {
+                  console.log("Call rejected");
+                  this.eventQueue.push({
+                    type: "callRejected",
+                    data: {
+                      userCalling: this.friends.dict[friendId].data,
+                    },
+                  });
+                } else if (message.type === 'callAccepted') {
+                  this.acceptCall();
+                  await this.addStreamToPeerConnection(this.friends.dict[friendId].data, await this.getMediaStream());
                 }
 
                 console.log("Data received: ", message);
@@ -251,11 +264,27 @@ export const useAppStore = defineStore("app", {
     setMediaStream(stream) {
       this.mediaStream = stream;
     },
-    async getMediaStream() {
+    async getMediaStream(forceCreate = false) {
       try {
-        if (this.mediaStream) {
+        if (this.mediaStreamLoading) {
+          await new Promise((resolve) => {
+            const interval = setInterval(() => {
+              if (!this.mediaStreamLoading) {
+                clearInterval(interval);
+                resolve();
+              }
+            }, 500);
+          });
+        }
+
+        if (this.mediaStream && forceCreate == false) {
           return this.mediaStream;
         }
+
+        console.log("Creating new media stream");
+
+
+        this.mediaStreamLoading = true;
 
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           audio: true,
@@ -267,12 +296,15 @@ export const useAppStore = defineStore("app", {
 
         this.setMediaStream(mediaStream);
         console.log("successfuly received local stream and saved on store.");
+        this.mediaStreamLoading = false;
         return mediaStream;
       } catch (error) {
         console.error(
           "error occurred when triyng to get an access to local stream",
           error
         );
+
+        this.mediaStreamLoading = false;
         return null;
       }
     },
@@ -326,7 +358,36 @@ export const useAppStore = defineStore("app", {
     },
     acceptCall() {
       this.sounds.call.pause();
-    }
+      this.currentCallInfo.accepted = true;
+    },
+    rejectCall(friend) {
+      this.sounds.call.pause();
+      this.sounds.call.currentTime = 0;
+      this.peers[friend.uid].send(
+        JSON.stringify({
+          type: "callRejected",
+          data: {},
+        })
+      );
+    },
+    callRejected() {
+      this.sounds.call.pause();
+      this.sounds.call.currentTime = 0;
+      this.setCallInactive();
+    },
+    /**
+     * Adds a media stream to the peer connection for a specified friend.
+     *
+     * @param {Object} friend - The friend object containing information about the peer.
+     */
+    async addStreamToPeerConnection(friend) {
+      console.log(`Adding stream to peer connection for friend: ${friend.uid}`);
+      if (friend.uid in this.peers) {
+        this.peers[friend.uid].addStream(await this.getMediaStream());
+      } else {
+        console.log(`No peer connection found for friend: ${friend.uid}`);
+      }
+    },
   },
   getters: {
     getFriends(state) {
