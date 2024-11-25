@@ -30,9 +30,17 @@
           </v-dialog>
 
 
-          <v-list-item v-for="(item, i) in store.getFriends" :key="i" :value="item" @click="(event) => setItem(item)"
-            :prepend-avatar="item.photoURL">
-            <v-list-item-title v-text="item.displayName"></v-list-item-title>
+          <v-list-item v-for="(friend, i) in store.getFriends" :key="i" :value="friend"
+            @click="(event) => setActiveFriend(friend.data)">
+            <template v-slot:prepend>
+              <div class="avatar-wrapper">
+                <v-avatar>
+                  <v-img :src="friend.data.photoURL" />
+                </v-avatar>
+                <div :class="['status-indicator', friend.status]"></div>
+              </div>
+            </template>
+            <v-list-item-title class="tw-ml-1" v-text="friend.data.displayName"></v-list-item-title>
           </v-list-item>
         </v-list>
         <v-list :lines="false" class="MyUser" density="compact" nav>
@@ -45,7 +53,7 @@
         </v-list>
       </v-navigation-drawer>
       <default-bar />
-      <default-view :selectedItem="selectedItem" />
+      <default-view ref="friendView" :selectedFriend="selectedFriend" />
       <!-- Starting call dialog -->
       <v-dialog v-model="store.isCalling" max-width="500">
         <v-card title="Calling">
@@ -66,16 +74,16 @@
         </v-card>
       </v-dialog>
       <!-- Icomming call dialog -->
-      <v-dialog v-model="incommingCall" max-width="500">
+      <v-dialog v-model="incommingCall.active" max-width="500">
         <v-card>
           <v-card-title>
-            Call from {{ store.incommingCallInfo?.userCalling?.displayName }}
+            Call from {{ incommingCall.userCalling?.displayName }}
           </v-card-title>
           <v-row class="pa-6">
             <v-col align="center">
               <div class="pulse">
                 <v-avatar size="70">
-                  <v-img :src="store.incommingCallInfo?.userCalling?.photoURL" />
+                  <v-img :src="incommingCall?.userCalling?.photoURL" />
                 </v-avatar>
               </div>
             </v-col>
@@ -100,15 +108,18 @@ import { getFriendsList, listenForNewFriends } from '@/firebase/userHelper';
 import DefaultBar from './AppBar.vue'
 import DefaultView from './View.vue'
 import { addFriend } from '@/firebase/userHelper';
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useAppStore } from '@/store/app';
-import { dismissInitiatedCall, watchIncommingCall, dismissIncommingCall, acceptCall } from '@/scripts/callAPI';
 
-const selectedItem = ref("");
-const incommingCall = ref(false);
+const selectedFriend = ref("");
+const incommingCall = ref({
+  active: false,
+  userCalling: null,
+});
 const store = useAppStore();
 
 const email = ref('');
+const friendView = ref(null);
 
 if (!store.isEventActive("friends")) {
   listenForNewFriends(auth.currentUser.uid, store);
@@ -125,35 +136,64 @@ async function tryAddFriend(isActive) {
   isActive.value = false;
 }
 
-onMounted(() => {
-  console.log("[Default] Componente montado!");
-  watchIncommingCall(onRinging)
+watch(() => store.eventQueue[0], (event) => {
+  console.log("Event queue", event);
+
+  if (event) {
+    if (event.type == "startCall") {
+      newCall(event.data.userCalling);
+    } else if (event.type == "stream") {
+      console.log(friendView.value);
+
+      friendView.value.addStream(event.data.stream, event.data.userCalling.uid);
+    } else if (event.type == 'callRejected') {
+      incommingCall.value = {
+        active: false,
+        userCalling: null,
+      }
+
+      friendView.value.friendHungUp(event.data.userCalling);
+    }
+
+    store.eventQueue.shift();
+  }
 });
 
-function onRinging(call) {
-  if (call) {
-    incommingCall.value = true;
-  } else {
-    incommingCall.value = false;
+function newCall(userCalling) {
+  incommingCall.value = {
+    active: true,
+    userCalling: userCalling,
   }
 }
 
+// onMounted(() => {
+//   console.log("[Default] Componente montado!");
+//   watchIncommingCall(onRinging)
+// });
+
 function hangUpCall() {
-  incommingCall.value = false;
-  dismissIncommingCall(false);
+  store.rejectCall(incommingCall.value.userCalling);
+  incommingCall.value = {
+    active: false,
+    userCalling: null,
+  };
 }
 
-function onAcceptCallClick() {
-  store.isInCall = true;
-  incommingCall.value = false;
-  dismissIncommingCall(true);
-  acceptCall();
-
+async function onAcceptCallClick() {
+  const userCalling = incommingCall.value.userCalling;
+  setActiveFriend(userCalling);
+  store.setActiveCall(userCalling)
+  store.addStreamToPeerConnection(userCalling);
+  store.peers[userCalling.uid].send(JSON.stringify({ type: 'callAccepted' }));
+  incommingCall.value = {
+    active: false,
+    userCalling: null,
+  };
 }
 
-function setItem(item) {
-  store.setActiveFriend(item)
-  selectedItem.value = item.displayName
+function setActiveFriend(friend) {
+  store.setActiveFriend(friend)
+  selectedFriend.value = friend.displayName
 }
 
 async function signOut() {
@@ -213,6 +253,31 @@ async function signOut() {
     transform: scale(1.8);
     opacity: 0;
   }
+}
+
+.avatar-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.status-indicator.online {
+  background-color: #43b581;
+  /* Green for online */
+}
+
+.status-indicator {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  border: 2px solid white;
+  border-radius: 50%;
+}
+
+.status-indicator.offline {
+  background-color: #747f8d;
+  /* Gray for offline */
 }
 
 .pulse::after {

@@ -1,7 +1,7 @@
 <template>
   <v-app-bar density="compact" order="-1">
     <div class="main-search tw-flex tw-row-auto tw-grow tw-justify-center tw-h-full">
-      <v-text-field class="inputBox" label="Find a friend :(" single-line hide-details v-model="query"
+      <v-text-field class="inputBox" label="Find a friend" single-line hide-details v-model="query"
         @keyup.enter="executeQuery" dense solo></v-text-field>
     </div>
     <div class="tw-flex tw-justify-between tw-flex-grow">
@@ -46,16 +46,9 @@ function executeQuery() {
 }
 
 function initiateCall() {
-  startVideoCall(watchCall, callUnsubscribeVar);
+  startVideoCall(store.activeFriend);
 }
 
-function watchCall(call) {
-  if (call.callAccepted) {
-    store.setIncommingCallInfo({ ...call, userCalling: store.currentUser, userCalled: store.activeFriend });
-    store.setCallingAsInactive();
-    store.setCallActive();
-  }
-}
 </script>
 
 

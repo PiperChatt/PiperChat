@@ -67,6 +67,7 @@ const doLogin = async () => {
     let user = userCredential.user;
     console.log("[Login] Usuário logado:", user);
     console.log(auth.currentUser)
+
     apppStore.login(user);
     loginInProgress.value = false
   } catch (error) {

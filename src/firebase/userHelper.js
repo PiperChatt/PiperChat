@@ -108,6 +108,51 @@ export async function getFriendsList(userId) {
   }
 }
 
+async function createRoomWithFriend(friendData) {
+  const store = useAppStore();
+  const roomKey = generateRoomKey(store.currentUser.uid, friendData.uid);
+
+  try {
+    const roomRef = ref(db, `rooms/${roomKey}`);
+
+    let roomExists = await get(roomRef);
+    if (roomExists.exists()) {
+      console.log("Room already exists");
+      return;
+    }
+
+    await set(roomRef, {
+      userA: friendData.uid,
+      userB: store.currentUser.uid,
+      oneToOneRoom: true,
+    });
+
+    console.log(`"Room created succesfully with ${friendData.displayName}`)
+
+  } catch (error) {
+    console.log(`error while creating room with ${friendData.displayName}. ${error}`);
+    return;
+  }
+
+  return roomKey;
+}
+
+export function generateRoomKey(firstUsedId, secondUserId) {
+  const [first, second] = [firstUsedId, secondUserId].sort();
+
+  const key = `${first}-${second}`;
+  const fnv1aHash = (str) => {
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+      hash ^= str.charCodeAt(i);
+      hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+    }
+    return (hash >>> 0).toString(16);
+  };
+
+  return fnv1aHash(key);
+}
+
 export async function listenForNewFriends(userId) {
   const friendsRef = ref(db, `users/${userId}/friends`);
   const store = useAppStore();
@@ -118,6 +163,9 @@ export async function listenForNewFriends(userId) {
     const friendData = await fetchFriendDetails(null, newFriendUid);
     console.log(friendData);
     store.addFriend(friendData);
+    store.listenForFriendStatus(friendData.uid);
+
+    createRoomWithFriend(friendData);
   });
 
   let onRemovedEvent = onChildRemoved(friendsRef, async (data) => {
