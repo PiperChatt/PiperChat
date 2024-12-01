@@ -22,8 +22,8 @@
       </div>
 
       <div v-if="store.activeFriend.displayName" class="tw-flex">
-        <v-icon @click="() => { }" size="28" class="tw-mr-5" icon="mdi-phone-in-talk"></v-icon>
-        <v-icon @click="initiateCall" size="28" class="tw-mr-5" icon="mdi-video"></v-icon>
+        <v-icon @click="initiateAudioCall" size="28" class="tw-mr-5" icon="mdi-phone-in-talk"></v-icon>
+        <v-icon @click="initiateVideoCall" size="28" class="tw-mr-5" icon="mdi-video"></v-icon>
       </div>
     </div>
   </v-app-bar>
@@ -33,7 +33,7 @@
 import { useLayout } from 'vuetify'
 import { useAppStore } from '@/store/app';
 import { ref } from 'vue'
-import { startVideoCall } from '@/scripts/callAPI';
+import { startVideoCall, startAudioCall } from '@/scripts/callAPI';
 
 const query = ref();
 
@@ -45,8 +45,12 @@ function executeQuery() {
   store.setQuery(query.value)
 }
 
-function initiateCall() {
+function initiateVideoCall() {
   startVideoCall(store.activeFriend);
+}
+
+function initiateAudioCall() {
+  startAudioCall(store.activeFriend);
 }
 
 </script>

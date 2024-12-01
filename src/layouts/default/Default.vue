@@ -115,6 +115,7 @@ const selectedFriend = ref("");
 const incommingCall = ref({
   active: false,
   userCalling: null,
+  callType: null
 });
 const store = useAppStore();
 
@@ -141,7 +142,7 @@ watch(() => store.eventQueue[0], (event) => {
 
   if (event) {
     if (event.type == "startCall") {
-      newCall(event.data.userCalling);
+      newCall(event.data);
     } else if (event.type == "stream") {
       console.log(friendView.value);
 
@@ -150,6 +151,7 @@ watch(() => store.eventQueue[0], (event) => {
       incommingCall.value = {
         active: false,
         userCalling: null,
+        callType: null
       }
 
       friendView.value.friendHungUp(event.data.userCalling);
@@ -159,10 +161,11 @@ watch(() => store.eventQueue[0], (event) => {
   }
 });
 
-function newCall(userCalling) {
+function newCall(callData) {
   incommingCall.value = {
     active: true,
-    userCalling: userCalling,
+    userCalling: callData.userCalling,
+    callType: callData.callType
   }
 }
 
@@ -176,18 +179,21 @@ function hangUpCall() {
   incommingCall.value = {
     active: false,
     userCalling: null,
+    callType: null
   };
 }
 
 async function onAcceptCallClick() {
   const userCalling = incommingCall.value.userCalling;
+  const callType = incommingCall.value.callType;
   setActiveFriend(userCalling);
   store.setActiveCall(userCalling)
-  store.addStreamToPeerConnection(userCalling);
-  store.peers[userCalling.uid].send(JSON.stringify({ type: 'callAccepted' }));
+  store.addStreamToPeerConnection(userCalling, callType);
+  store.peers[userCalling.uid].send(JSON.stringify({ type: 'callAccepted', data: { callType } }));
   incommingCall.value = {
     active: false,
     userCalling: null,
+    callType: null
   };
 }
 

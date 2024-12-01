@@ -105,7 +105,7 @@ function createSimplePeerForActiveFriend() {
     } else if (message.type === 'callAccepted') {
       console.log('callAccepted');
       store.acceptCall();
-      await store.addStreamToPeerConnection(currentFriend);
+      await store.addStreamToPeerConnection(currentFriend, message.data.callType);
     } else if (message.type === "callRejected") {
       console.log('callRejected');
       await friendHungUp(currentFriend);
@@ -115,9 +115,10 @@ function createSimplePeerForActiveFriend() {
         type: "startCall",
         data: {
           userCalling: store.friends.dict[currentFriendId].data,
+          callType: message.data.callType
         },
       });
-      await store.getMediaStream();
+      await store.getMediaStream(message.type.callType);
     }
 
     console.log("data", message)
