@@ -84,7 +84,7 @@ export const useAppStore = defineStore("app", {
     createSignalRConnection() {
       this.signalRConnection = new HubConnectionBuilder()
         .withUrl(
-          `http://localhost:5285/signal?UserID=${this.currentUser.uid}`,
+          `http://192.168.15.3:5285/signal?UserID=${this.currentUser.uid}`,
           { withCredentials: false }
         )
         .withAutomaticReconnect()
@@ -134,9 +134,10 @@ export const useAppStore = defineStore("app", {
                     data: {
                       // TODO: Quando o usuario acaba de ficar online e tem alguém ligando. O Objeto this.friends ainda não existe e da erro.
                       userCalling: this.friends.dict[friendId].data,
+                      callType: message.data.callType,
                     },
                   });
-                  await this.getMediaStream();
+                  await this.getMediaStream(message.data.callType);
                 } else if (message.type === "callRejected") {
                   console.log("Call rejected");
                   this.eventQueue.push({
@@ -149,7 +150,7 @@ export const useAppStore = defineStore("app", {
                   this.acceptCall();
                   await this.addStreamToPeerConnection(
                     this.friends.dict[friendId].data,
-                    await this.getMediaStream()
+                    message.data.callType
                   );
                 }
 
@@ -268,7 +269,7 @@ export const useAppStore = defineStore("app", {
     setMediaStream(stream) {
       this.mediaStream = stream;
     },
-    async getMediaStream(forceCreate = false) {
+    async getMediaStream(callType) {
       try {
         if (this.mediaStreamLoading) {
           await new Promise((resolve) => {
@@ -281,7 +282,7 @@ export const useAppStore = defineStore("app", {
           });
         }
 
-        if (this.mediaStream && forceCreate == false) {
+        if (this.mediaStream) {
           return this.mediaStream;
         }
 
@@ -289,13 +290,23 @@ export const useAppStore = defineStore("app", {
 
         this.mediaStreamLoading = true;
 
-        const mediaStream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: {
-            width: 480,
-            height: 360,
-          },
-        });
+        let mediaStream = undefined;
+
+        if (callType == "audio") {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: false
+          });
+        } else if (callType == "video") {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: {
+              width: 480,
+              height: 360,
+              facingMode: 'user'
+            },
+          });
+        }
 
         this.setMediaStream(mediaStream);
         console.log("successfuly received local stream and saved on store.");
@@ -387,10 +398,10 @@ export const useAppStore = defineStore("app", {
      *
      * @param {Object} friend - The friend object containing information about the peer.
      */
-    async addStreamToPeerConnection(friend) {
-      console.log(`Adding stream to peer connection for friend: ${friend.uid}`);
+    async addStreamToPeerConnection(friend, callType) {
+      console.log(`Adding stream to peer connection for friend: ${friend.uid} with callType: ${callType}`);
       if (friend.uid in this.peers) {
-        this.peers[friend.uid].addStream(await this.getMediaStream());
+        this.peers[friend.uid].addStream(await this.getMediaStream(callType));
       } else {
         console.log(`No peer connection found for friend: ${friend.uid}`);
       }

@@ -32,21 +32,22 @@ function waitFor(millisec) {
   });
 }
 
-async function notifyCallToUserV2(friend) {
+async function notifyCallToUserV2(friend, callType) {
   let audio = sounds.call;
   audio.currentTime = 0;
   audio.loop = true;
-  audio.play();
+  await audio.play();
 
   const friendId = friend.uid;
+  const callMessage = JSON.stringify({
+    type: "startCall",
+    data: {
+      callType
+    },
+  });
 
   if (friendId in store.peers) {
-    store.peers[friendId].send(
-      JSON.stringify({
-        type: "startCall",
-        data: {},
-      })
-    );
+    store.peers[friendId].send(callMessage);
 
     if (store.timeouts["notifyCall"]) {
       for (let timeout of store.timeouts["notifyCall"]) {
@@ -54,6 +55,7 @@ async function notifyCallToUserV2(friend) {
       }
     }
 
+    // Call que já foi aceita, foi rejeitada... Debugar o motivo.
     let x = setTimeout(
       () => {
         if (!store.currentCallInfo?.accepted) {
@@ -95,11 +97,18 @@ async function notifyCallToUserV2(friend) {
 }
 
 export async function startVideoCall(friend) {
-  console.log(friend);
+  await startCall(friend, "video");
+}
 
-  store.getMediaStream();
+export async function startAudioCall(friend) {
+  await startCall(friend, "audio");
+}
+
+async function startCall(friend, callType) {
+  console.log(friend);
+  store.getMediaStream(callType);
   store.setActiveCall(friend);
-  await notifyCallToUserV2(friend);
+  await notifyCallToUserV2(friend, callType);
 }
 
 function deleteCallRoom() {
