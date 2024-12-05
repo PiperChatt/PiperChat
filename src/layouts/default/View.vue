@@ -1,8 +1,8 @@
 <template>
   <v-main>
     <v-container class="fill-height pa-0">
-      <div v-if="store.getVideoCallStatus" class="video-container">
-        <v-col style="background-color: black;">
+      <v-row v-if="store.getVideoCallStatus" class="video-container">
+        <v-col :cols="12" style="background-color: black;">
           <v-progress-circular v-if="!userVideoLoaded" class="ma-8" color="primary" indeterminate :size="68"
             :width="6" />
           <div id="videos">
@@ -11,7 +11,7 @@
             class="ma-3">
           </v-btn>
         </v-col>
-      </div>
+      </v-row>
       <div class="list-container ma-3">
         <v-text-field v-if="selectedFriend" class="inputBox" label="Type a message" single-line hide-details
           @keyup.enter="sendNewMessage" rounded dense solo append-icon="" v-model="message"></v-text-field>
@@ -175,6 +175,12 @@ const addStream = (stream, userId) => {
   videoElement.muted = true
   videoElement.srcObject = stream
   videoElement.id = `${userId}-video`
+  
+  // Adiciona estilos para ocupar o máximo de espaço do v-col
+  videoElement.style.width = "100%";
+  videoElement.style.height = "100%";
+  videoElement.style.objectFit = "cover"; // Preenche o espaço sem distorção
+
   videoElement.onloadedmetadata = () => {
     videoElement.play()
   }

@@ -3,6 +3,7 @@ import { defineStore } from "pinia";
 import { HubConnectionBuilder } from "@microsoft/signalr";
 import SimplePeer from "simple-peer/simplepeer.min.js";
 import { useSoundStore } from "@/store/sounds";
+import { getCameraResolutions, testCameraResolutions } from '@/utils/camera'
 
 export const useAppStore = defineStore("app", {
   state: () => ({
@@ -52,6 +53,7 @@ export const useAppStore = defineStore("app", {
     peers: {},
     peersStreams: {},
     timeouts: {},
+    avaliableCameraResolutions: [],
   }),
   actions: {
     updateFriendsSatus() {
@@ -117,7 +119,6 @@ export const useAppStore = defineStore("app", {
 
               peer.on("data", async (data) => {
                 const message = JSON.parse(data);
-
                 if (message.type === "message") {
                   let friend = this.friends.list.find(
                     (friend) => friend.data.uid === friendId
@@ -289,6 +290,7 @@ export const useAppStore = defineStore("app", {
         console.log("Creating new media stream");
 
         this.mediaStreamLoading = true;
+        const higherResolutions = await getCameraResolutions();
 
         let mediaStream = undefined;
 
@@ -301,8 +303,8 @@ export const useAppStore = defineStore("app", {
           mediaStream = await navigator.mediaDevices.getUserMedia({
             audio: true,
             video: {
-              width: 480,
-              height: 360,
+              width: higherResolutions[0].resolutions.width,
+              height: higherResolutions[0].resolutions.height,
               facingMode: 'user'
             },
           });
