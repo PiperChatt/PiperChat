@@ -86,7 +86,7 @@ export const useAppStore = defineStore("app", {
     createSignalRConnection() {
       this.signalRConnection = new HubConnectionBuilder()
         .withUrl(
-          `http://192.168.15.3:5285/signal?UserID=${this.currentUser.uid}`,
+          `http://20.84.42.18:5285/signal?UserID=${this.currentUser.uid}`,
           { withCredentials: false }
         )
         .withAutomaticReconnect()
@@ -106,7 +106,7 @@ export const useAppStore = defineStore("app", {
               this.signalQueue.signals[friendId] = [signalDataParsed];
             }
 
-            if (!(friendId in this.peers)) {
+            if (!(friendId in this.peers) || this.peers[friendId].closed || this.peers[friendId].destroyed) {
               console.log("Creating new peer");
               this.peers[friendId] = new SimplePeer({
                 initiator: false,
@@ -130,6 +130,10 @@ export const useAppStore = defineStore("app", {
                   );
                 } else if (message.type === "startCall") {
                   console.log("CALL");
+                  this.sounds.call.currentTime = 0;
+                  this.sounds.call.loop = true;
+                  await this.sounds.call.play();
+
                   this.eventQueue.push({
                     type: "startCall",
                     data: {
@@ -148,6 +152,7 @@ export const useAppStore = defineStore("app", {
                     },
                   });
                 } else if (message.type === "callAccepted") {
+                  console.warn("Call accepted - CAIU AQUI.");
                   this.acceptCall();
                   await this.addStreamToPeerConnection(
                     this.friends.dict[friendId].data,
@@ -172,7 +177,14 @@ export const useAppStore = defineStore("app", {
               peer.on("connect", () => {
                 console.log("Connected to peer");
               });
+
+              peer.on("close", () => {
+                peer.destroy();
+                delete this.peers[friendId];
+                console.log("Peer connection closed");
+              });
             }
+
             this.peers[friendId].signal(signalDataParsed);
           } catch (error) {
             console.error("Error handling signal data", error);

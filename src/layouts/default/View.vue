@@ -71,7 +71,7 @@ watch(() => store.friends.dict[store.activeFriend.uid]?.status, (newStatus) => {
 })
 
 function isConnectionCreatedForActiveFriend() {
-  return store.activeFriend.uid in store.peers;
+  return store.activeFriend.uid in store.peers && !(store.peers[store.activeFriend.uid].closed || store.peers[store.activeFriend.uid].destroyed);
 }
 
 function createSimplePeerForActiveFriend() {
@@ -124,6 +124,8 @@ function createSimplePeerForActiveFriend() {
     console.log("data", message)
   })
   peer.on('close', (data) => {
+    store.peers[currentFriendId].destroy();
+    delete store.peers[currentFriendId];
     console.log('close: ', data)
   })
   peer.on('error', (data) => {
@@ -175,7 +177,7 @@ const addStream = (stream, userId) => {
   videoElement.muted = true
   videoElement.srcObject = stream
   videoElement.id = `${userId}-video`
-  
+
   // Adiciona estilos para ocupar o máximo de espaço do v-col
   videoElement.style.width = "100%";
   videoElement.style.height = "100%";

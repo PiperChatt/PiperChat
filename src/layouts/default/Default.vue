@@ -190,6 +190,7 @@ async function onAcceptCallClick() {
   store.setActiveCall(userCalling)
   store.addStreamToPeerConnection(userCalling, callType);
   store.peers[userCalling.uid].send(JSON.stringify({ type: 'callAccepted', data: { callType } }));
+  store.acceptCall();
   incommingCall.value = {
     active: false,
     userCalling: null,
