@@ -7,16 +7,28 @@
             :width="6" />
           <div id="videos" style="height: 50vh;">
           </div>
-          <v-btn v-if="userVideoLoaded" @click="hangUp" icon="mdi-phone-hangup" density="default" color="red"
-            class="ma-3">
-          </v-btn>
+        </v-col>
+      </v-row>
+      <v-row v-if="store.getVideoCallStatus && userVideoLoaded">
+        <v-col class="d-flex justify-center">
+          <div class="call-controls">
+            <v-btn @click="toggleMute" :color="isMuted ? 'grey' : 'primary'" icon class="ma-2">
+              <v-icon>{{ isMuted ? 'mdi-microphone-off' : 'mdi-microphone' }}</v-icon>
+            </v-btn>
+            <v-btn @click="toggleCamera" :color="isCameraOff ? 'grey' : 'primary'" icon class="ma-2">
+              <v-icon>{{ isCameraOff ? 'mdi-video-off' : 'mdi-video' }}</v-icon>
+            </v-btn>
+            <v-btn @click="hangUp" icon="mdi-phone-hangup" density="default" color="red" class="ma-2">
+            </v-btn>
+          </div>
         </v-col>
       </v-row>
       <div class="list-container pa-6" :style="userVideoLoaded ? 'height: 35vh' : 'height: 90vh'">
         <v-text-field v-if="selectedFriend" class="inputBox mb-4 w-100" label="Type a message" single-line hide-details
-          @keyup.enter="sendNewMessage" rounded dense variant="solo-filled" append-icon="" v-model="message"></v-text-field>
+          @keyup.enter="sendNewMessage" rounded dense variant="solo-filled" append-icon=""
+          v-model="message"></v-text-field>
         <div class="messages">
-            <div v-for="(chatMessage, i) in store.getMessages(selectedFriend)" :key="chatMessage">
+          <div v-for="(chatMessage, i) in store.getMessages(selectedFriend)" :key="chatMessage">
             <div class="userMessage tw-flex" v-if="('Me' in chatMessage)">
               <v-avatar :image="store.currentUser.photoURL" size="45"></v-avatar>
               <div class="tw-flex tw-flex-col">
@@ -53,6 +65,9 @@ const props = defineProps({
 })
 const store = useAppStore()
 const { selectedFriend } = toRefs(props);
+
+const isMuted = ref(false);
+const isCameraOff = ref(false);
 
 // TODO: O status de "Em chamada" é global. Então, quando troca de usuário, o vídeo vai permanecer na tela. Mudar esse estado para estar atrelado ao usuário selecionado.'
 watch(() => store.friends.dict[store.activeFriend.uid]?.status, (newStatus) => {
@@ -146,6 +161,28 @@ onBeforeUnmount(() => {
 const message = ref();
 const userVideoLoaded = ref(false);
 
+function toggleMute() {
+  if (store.mediaStream) {
+    const audioTracks = store.mediaStream.getAudioTracks();
+    audioTracks.forEach(track => {
+      track.enabled = !track.enabled;
+    });
+    isMuted.value = audioTracks.length > 0 ? !audioTracks[0].enabled : false;
+    console.log(`Microphone ${isMuted.value ? 'muted' : 'unmuted'}`);
+  }
+}
+
+function toggleCamera() {
+  if (store.mediaStream) {
+    const videoTracks = store.mediaStream.getVideoTracks();
+    videoTracks.forEach(track => {
+      track.enabled = !track.enabled;
+    });
+    isCameraOff.value = videoTracks.length > 0 ? !videoTracks[0].enabled : true;
+    console.log(`Camera ${isCameraOff.value ? 'disabled' : 'enabled'}`);
+  }
+}
+
 function sendNewMessage() {
   if (!message.value) return
   if (store.activeFriend.uid in store.peers) {
@@ -190,6 +227,9 @@ const addStream = (stream, userId) => {
   }
   videoContainer.appendChild(videoElement)
   userVideoLoaded.value = true;
+
+  isMuted.value = false;
+  isCameraOff.value = false;
 }
 
 const removeStream = (userId) => {
@@ -214,6 +254,9 @@ function freeCam() {
       track.stop();
     });
     store.mediaStream = null;
+
+    isMuted.value = false;
+    isCameraOff.value = false;
   }
 }
 
@@ -286,8 +329,10 @@ span {
 
 /* Chrome, Edge e Safari */
 .list-container .messages::-webkit-scrollbar {
-  width: 6px; /* largura da barra vertical */
-  height: 6px; /* altura da barra horizontal */
+  width: 6px;
+  /* largura da barra vertical */
+  height: 6px;
+  /* altura da barra horizontal */
 }
 
 .list-container .messages::-webkit-scrollbar-thumb {
@@ -317,5 +362,14 @@ span {
   background-color: black;
   align-items: center;
   justify-content: center
+}
+
+.call-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: 24px;
+  background-color: rgba(0, 0, 0, 0.5);
 }
 </style>
