@@ -40,6 +40,7 @@ export const useAppStore = defineStore("app", {
       list: [],
       rooms: {},
       searchQuery: "",
+      unreadMessages: {},
     },
     activeFriend: {
       Name: "",
@@ -304,6 +305,13 @@ export const useAppStore = defineStore("app", {
       } else {
         this.messages[userName] = [{ Them: message }];
       }
+
+      const friendId = this.friends.list.find(f => f.data.displayName === userName)?.data?.uid;
+      if (friendId) {
+        if (this.activeFriend.uid !== friendId) {
+          this.friends.unreadMessages[friendId] = true;
+        }
+      }
     },
     removeMessage(userName, message) {
       this.messages[userName] = this.messages[userName].filter(
@@ -320,6 +328,10 @@ export const useAppStore = defineStore("app", {
     },
     setActiveFriend(friend) {
       this.activeFriend = friend;
+
+      if (friend && friend.uid) {
+        this.friends.unreadMessages[friend.uid] = false;
+      }
     },
     setFriendsList(friends) {
       this.friends.list = friends;

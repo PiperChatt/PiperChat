@@ -41,6 +41,9 @@
               </div>
             </template>
             <v-list-item-title class="tw-ml-1" v-text="friend.data.displayName"></v-list-item-title>
+            <template v-slot:append v-if="store.friends.unreadMessages[friend.data.uid]">
+              <v-icon color="#32b6e6" icon="mdi mdi-brightness-1" size="small"></v-icon>
+            </template>
           </v-list-item>
         </v-list>
         <v-list :lines="false" class="MyUser" density="compact" nav>
