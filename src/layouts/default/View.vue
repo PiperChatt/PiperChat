@@ -5,29 +5,31 @@
         <v-col :cols="12" style="background-color: black;">
           <v-progress-circular v-if="!userVideoLoaded" class="ma-8" color="primary" indeterminate :size="68"
             :width="6" />
-          <div id="videos">
+          <div id="videos" style="height: 50vh;">
           </div>
           <v-btn v-if="userVideoLoaded" @click="hangUp" icon="mdi-phone-hangup" density="default" color="red"
             class="ma-3">
           </v-btn>
         </v-col>
       </v-row>
-      <div class="list-container ma-3">
-        <v-text-field v-if="selectedFriend" class="inputBox" label="Type a message" single-line hide-details
-          @keyup.enter="sendNewMessage" rounded dense solo append-icon="" v-model="message"></v-text-field>
-        <div v-for="(chatMessage, i) in store.getMessages(selectedFriend).slice().reverse()" :key="chatMessage">
-          <div class="userMessage tw-flex" v-if="('Me' in chatMessage)">
-            <v-avatar :image="store.currentUser.photoURL" size="45"></v-avatar>
-            <div class="tw-flex tw-flex-col">
-              <span class="tw-font-bold">{{ store.currentUser.displayName }}</span>
-              <span>{{ chatMessage["Me"] }}</span>
+      <div class="list-container pa-6" :style="userVideoLoaded ? 'height: 35vh' : 'height: 90vh'">
+        <v-text-field v-if="selectedFriend" class="inputBox mb-4 w-100" label="Type a message" single-line hide-details
+          @keyup.enter="sendNewMessage" rounded dense variant="solo-filled" append-icon="" v-model="message"></v-text-field>
+        <div class="messages">
+            <div v-for="(chatMessage, i) in store.getMessages(selectedFriend)" :key="chatMessage">
+            <div class="userMessage tw-flex" v-if="('Me' in chatMessage)">
+              <v-avatar :image="store.currentUser.photoURL" size="45"></v-avatar>
+              <div class="tw-flex tw-flex-col">
+                <span class="tw-font-bold">{{ store.currentUser.displayName }}</span>
+                <span>{{ chatMessage["Me"] }}</span>
+              </div>
             </div>
-          </div>
-          <div class="userMessage  tw-flex" v-else>
-            <v-avatar :image="store.activeFriend.photoURL" size="45"></v-avatar>
-            <div class="tw-flex tw-flex-col">
-              <span class="tw-font-bold">{{ selectedFriend }}</span>
-              <span>{{ chatMessage["Them"] }}</span>
+            <div class="userMessage  tw-flex" v-else>
+              <v-avatar :image="store.activeFriend.photoURL" size="45"></v-avatar>
+              <div class="tw-flex tw-flex-col">
+                <span class="tw-font-bold">{{ selectedFriend }}</span>
+                <span>{{ chatMessage["Them"] }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -110,7 +112,7 @@ function createSimplePeerForActiveFriend() {
       console.log('callRejected');
       await friendHungUp(currentFriend);
     } else if (message.type === "startCall") {
-      console.log("CALL");
+      console.log("CALL received");
       store.eventQueue.push({
         type: "startCall",
         data: {
@@ -247,8 +249,10 @@ span {
 .inputBox {
   margin-top: 20px;
   margin-bottom: 20px;
-  width: 500px;
+  width: 78vw !important;
   max-height: 20px;
+  position: fixed;
+  left: 5;
 }
 
 .userMessage {
@@ -256,10 +260,43 @@ span {
 }
 
 .list-container {
+  /* position: fixed; */
   display: flex;
   flex-direction: column-reverse;
   align-self: end;
   margin-bottom: 5px;
+  height: 100%;
+  width: 90vw;
+}
+
+.list-container .messages {
+  overflow-y: auto;
+  margin-bottom: 5vh;
+  padding-bottom: 1vh;
+  overflow-y: auto;
+  width: 100%;
+}
+
+
+/* .list-container .messages {
+  flex: 1;
+  overflow-y: auto;
+  background-color: green;
+} */
+
+/* Chrome, Edge e Safari */
+.list-container .messages::-webkit-scrollbar {
+  width: 6px; /* largura da barra vertical */
+  height: 6px; /* altura da barra horizontal */
+}
+
+.list-container .messages::-webkit-scrollbar-thumb {
+  background-color: black;
+  border-radius: 8px;
+}
+
+.list-container .messages::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .video-container {

@@ -14,8 +14,9 @@ import { ref, onMounted } from 'vue';
 const apppStore = useAppStore()
 console.log('app.vue')
 onMounted(() => {
-  console.log("Componente montado!",);
-
+  console.log("Componente montado! home",);
+  document.body.style.overflow = 'hidden';
+  document.documentElement.style.overflow = 'hidden'; // <html>
   if (auth.currentUser) {
     console.log("Usuário está logado:", auth.currentUser);
     apppStore.login(auth.currentUser);

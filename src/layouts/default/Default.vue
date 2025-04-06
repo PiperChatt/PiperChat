@@ -1,5 +1,5 @@
 <template>
-  <v-app :full-height="true" ref="app">
+  <v-app :full-height="true" ref="app" style="overflow-y: hidden !important;">
     <v-layout>
       <v-navigation-drawer permanent class="main-drawer" floating name="drawer" width="240">
         <v-list :lines="false" density="compact" nav>
