@@ -1,32 +1,31 @@
 <template>
   <v-main>
-    <v-container class="fill-height pa-0">
-      <v-row v-if="store.getVideoCallStatus" class="video-container">
-        <v-col :cols="12" style="background-color: black;">
-          <v-progress-circular v-if="!userVideoLoaded" class="ma-8" color="primary" indeterminate :size="68"
-            :width="6" />
-          <div id="videos" style="height: 50vh;">
-          </div>
-        </v-col>
-      </v-row>
-      <v-row v-if="store.getVideoCallStatus && userVideoLoaded">
-        <v-col class="d-flex justify-center">
-          <div class="call-controls">
-            <v-btn @click="toggleMute" :color="isMuted ? 'grey' : 'primary'" icon class="ma-2">
-              <v-icon>{{ isMuted ? 'mdi-microphone-off' : 'mdi-microphone' }}</v-icon>
-            </v-btn>
-            <v-btn @click="toggleCamera" :color="isCameraOff ? 'grey' : 'primary'" icon class="ma-2">
-              <v-icon>{{ isCameraOff ? 'mdi-video-off' : 'mdi-video' }}</v-icon>
-            </v-btn>
-            <v-btn @click="hangUp" icon="mdi-phone-hangup" density="default" color="red" class="ma-2">
-            </v-btn>
-          </div>
-        </v-col>
-      </v-row>
-      <div class="list-container pa-6" :style="userVideoLoaded ? 'height: 35vh' : 'height: 90vh'">
-        <v-text-field v-if="selectedFriend" class="inputBox mb-4 w-100" label="Type a message" single-line hide-details
-          @keyup.enter="sendNewMessage" rounded dense variant="solo-filled" append-icon=""
-          v-model="message"></v-text-field>
+    <v-container class="fill-height pa-0 d-flex flex-column">
+      <div v-if="store.getVideoCallStatus" class="video-section">
+        <v-row class="video-container ma-0">
+          <v-col :cols="12" class="video-col pa-0">
+            <v-progress-circular v-if="!userVideoLoaded" class="loader" color="primary" indeterminate :size="68"
+              :width="6" />
+            <div id="videos" class="videos-container">
+            </div>
+          </v-col>
+        </v-row>
+        <v-row v-if="userVideoLoaded" class="controls-row ma-0 pa-0">
+          <v-col class="d-flex justify-center pa-0">
+            <div class="call-controls">
+              <v-btn @click="toggleMute" :color="isMuted ? 'grey' : 'primary'" icon class="ma-2">
+                <v-icon>{{ isMuted ? 'mdi-microphone-off' : 'mdi-microphone' }}</v-icon>
+              </v-btn>
+              <v-btn @click="toggleCamera" :color="isCameraOff ? 'grey' : 'primary'" icon class="ma-2">
+                <v-icon>{{ isCameraOff ? 'mdi-video-off' : 'mdi-video' }}</v-icon>
+              </v-btn>
+              <v-btn @click="hangUp" icon="mdi-phone-hangup" density="default" color="red" class="ma-2">
+              </v-btn>
+            </div>
+          </v-col>
+        </v-row>
+      </div>
+      <div class="list-container pa-6" :class="{ 'chat-with-video': store.getVideoCallStatus && userVideoLoaded }">
         <div class="messages">
           <div v-for="(chatMessage, i) in store.getMessages(selectedFriend)" :key="chatMessage">
             <div class="userMessage tw-flex" v-if="('Me' in chatMessage)">
@@ -45,7 +44,10 @@
             </div>
           </div>
         </div>
-
+      </div>
+      <div v-if="selectedFriend" class="message-input-container">
+        <v-text-field class="inputBox" label="Type a message" single-line hide-details @keyup.enter="sendNewMessage"
+          rounded dense variant="solo-filled" append-icon="" v-model="message"></v-text-field>
       </div>
     </v-container>
   </v-main>
@@ -197,9 +199,15 @@ const showLocalVideoPreview = (stream) => {
   videoElement.setAttribute('controls', true);
   videoElement.autoplay = true
   videoElement.muted = true
+  videoElement.className = 'video-element local-video'
+  videoElement.style.maxWidth = "100%";
+  videoElement.style.maxHeight = "100%";
+  videoElement.style.objectFit = "cover";
+  videoElement.style.width = "100%";
+  videoElement.style.height = "100%";
+  videoElement.style.margin = "0 auto";
   videoElement.style.padding = "5px";
-  // videoElement.style.width = "50%";
-  videoElement.style.height = "80%";
+
   videoElement.srcObject = stream
   videoElement.onloadedmetadata = () => {
     videoElement.play()
@@ -216,11 +224,13 @@ const addStream = (stream, userId) => {
   videoElement.muted = true
   videoElement.srcObject = stream
   videoElement.id = `${userId}-video`
-
-  // Adiciona estilos para ocupar o máximo de espaço do v-col
+  videoElement.className = 'video-element'
+  videoElement.style.maxWidth = "100%";
+  videoElement.style.maxHeight = "100%";
+  videoElement.style.objectFit = "cover";
   videoElement.style.width = "100%";
   videoElement.style.height = "100%";
-  videoElement.style.objectFit = "cover"; // Preenche o espaço sem distorção
+  videoElement.style.margin = "0 auto";
 
   videoElement.onloadedmetadata = () => {
     videoElement.play()
@@ -290,49 +300,109 @@ span {
 }
 
 .inputBox {
-  margin-top: 20px;
-  margin-bottom: 20px;
-  width: 78vw !important;
-  max-height: 20px;
-  position: fixed;
-  left: 5;
+  margin-bottom: 10px;
+  width: 100% !important;
+  max-height: 50px;
+  position: relative;
+  bottom: 0;
+  left: 0;
+  right: 0;
 }
 
 .userMessage {
   margin-top: 20px;
 }
 
-.list-container {
-  /* position: fixed; */
+.video-section {
   display: flex;
-  flex-direction: column-reverse;
-  align-self: end;
-  margin-bottom: 5px;
+  flex-direction: column;
+  width: 100%;
+  background: #000;
+}
+
+.video-container {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: black;
+  min-height: 300px;
+  height: 50vh;
+}
+
+.video-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   height: 100%;
-  width: 90vw;
+}
+
+.videos-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.videos-container video {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+}
+
+.loader {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.controls-row {
+  width: 100%;
+  padding: 10px 0;
+  border-radius: 100px;
+}
+
+.call-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 100px;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 10;
+}
+
+.list-container {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  padding-bottom: 80px;
+}
+
+.chat-with-video {
+  height: calc(50vh - 450px);
+  margin-bottom: 50px;
 }
 
 .list-container .messages {
   overflow-y: auto;
-  margin-bottom: 5vh;
-  padding-bottom: 1vh;
-  overflow-y: auto;
+  flex-grow: 1;
   width: 100%;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
 }
 
-
-/* .list-container .messages {
-  flex: 1;
-  overflow-y: auto;
-  background-color: green;
-} */
-
-/* Chrome, Edge e Safari */
 .list-container .messages::-webkit-scrollbar {
   width: 6px;
-  /* largura da barra vertical */
   height: 6px;
-  /* altura da barra horizontal */
 }
 
 .list-container .messages::-webkit-scrollbar-thumb {
@@ -344,32 +414,14 @@ span {
   background: transparent;
 }
 
-.video-container {
-  display: flex;
-  width: 100%;
-  align-self: start;
-  align-items: center;
-  text-align: center;
-  justify-content: center;
-  background-color: black;
-  height: 50%;
-}
-
-#videos {
-  display: flex;
-  align-self: start;
-  width: 100%;
-  background-color: black;
-  align-items: center;
-  justify-content: center
-}
-
-.call-controls {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 8px 16px;
-  border-radius: 24px;
-  background-color: rgba(0, 0, 0, 0.5);
+.message-input-container {
+  position: fixed;
+  bottom: 0;
+  left: 240px;
+  right: 0;
+  padding: 16px 24px;
+  background-color: #323338;
+  z-index: 1000;
+  box-shadow: 0 -1px 5px rgba(0, 0, 0, 0.1);
 }
 </style>
