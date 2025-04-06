@@ -28,7 +28,7 @@ export const getConfiguration = () => {
   if (turnIceServers) {
     console.log('TURN server credentials fetched')
     return {
-      icServers: [
+      iceServers: [
         {
           urls: 'stun:stun.l.google.com:19302'
         },
@@ -38,7 +38,7 @@ export const getConfiguration = () => {
   } else {
     console.warn('Using only STUN server')
     return {
-      icServers: [
+      iceServers: [
         {
           urls: 'stun:stun.l.google.com:19302'
         }

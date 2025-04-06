@@ -120,7 +120,7 @@ function createSimplePeerForActiveFriend() {
           callType: message.data.callType
         },
       });
-      await store.getMediaStream(message.type.callType);
+      await store.getMediaStream(message.data.callType);
     }
 
     console.log("data", message)

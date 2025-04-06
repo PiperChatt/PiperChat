@@ -84,9 +84,14 @@ export const useAppStore = defineStore("app", {
       );
     },
     createSignalRConnection() {
+      if (this.signalRConnection && this.signalRConnection.state === "Connected") {
+        console.log("SignalR connection already established");
+        return;
+      }
+
       this.signalRConnection = new HubConnectionBuilder()
         .withUrl(
-          `http://20.84.42.18:5285/signal?UserID=${this.currentUser.uid}`,
+          `http://localhost:5285/signal?UserID=${this.currentUser.uid}`,
           { withCredentials: false }
         )
         .withAutomaticReconnect()
@@ -95,9 +100,10 @@ export const useAppStore = defineStore("app", {
       this.signalRConnection.on(
         "WebRtcSignalReceived",
         (friendId, signalData) => {
-          const signalDataParsed = JSON.parse(signalData);
-          console.log("Signal received from: ", friendId, signalDataParsed);
           try {
+            const signalDataParsed = JSON.parse(signalData);
+            console.log("Signal received from: ", friendId, signalDataParsed);
+
             this.signalQueue.pendingFriendsToCheck.push(friendId);
 
             if (friendId in this.signalQueue.signals) {
@@ -114,6 +120,7 @@ export const useAppStore = defineStore("app", {
               console.log("Creating new peer");
               this.peers[friendId] = new SimplePeer({
                 initiator: false,
+                trickle: true,
               });
 
               const peer = this.peers[friendId];
@@ -186,42 +193,69 @@ export const useAppStore = defineStore("app", {
               });
 
               peer.on("connect", () => {
-                console.log("Connected to peer");
+                console.log("Connected to peer:", friendId);
               });
 
               peer.on("close", () => {
-                peer.destroy();
-                delete this.peers[friendId];
-                console.log("Peer connection closed");
+                this.cleanupPeerConnection(friendId);
+                console.log("Peer connection closed:", friendId);
+              });
+
+              peer.on("error", (err) => {
+                console.error("Peer connection error:", err);
+                this.cleanupPeerConnection(friendId);
               });
             }
 
             this.peers[friendId].signal(signalDataParsed);
           } catch (error) {
-            console.error("Error handling signal data", error);
+            console.error("Error handling signal data:", error);
           }
         }
       );
 
       this.signalRConnection.on("FriendsStatus", (friendsStatus) => {
-        for (const friend of friendsStatus) {
-          if (friend.friendId in this.friends.dict) {
-            // console.log("Friend already in list");
-            this.friends.dict[friend.friendId].status = friend.status;
-          }
-        }
+        try {
+          const statusUpdates = Array.isArray(friendsStatus) ? friendsStatus : [friendsStatus];
 
-        // console.log("Friends status updated: ", this.friends.list);
+          for (const friend of statusUpdates) {
+            if (friend && friend.friendId && this.friends.dict) {
+              if (friend.friendId in this.friends.dict) {
+                this.friends.dict[friend.friendId].status = friend.status;
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error updating friend status:", error);
+        }
       });
 
+      this.startSignalRConnection();
+    },
+
+    startSignalRConnection() {
       this.signalRConnection
         .start()
         .then(() => {
           console.log("SignalR connection started");
+          this.updateFriendsSatus();
         })
         .catch((error) => {
-          console.log("Error starting SignalR connection", error);
+          console.error("Error starting SignalR connection:", error);
+          setTimeout(() => {
+            this.startSignalRConnection();
+          }, 5000);
         });
+    },
+    cleanupPeerConnection(friendId) {
+      try {
+        if (this.peers[friendId]) {
+          this.peers[friendId].destroy();
+        }
+        delete this.peers[friendId];
+      } catch (error) {
+        console.error(`Error cleaning up peer connection for ${friendId}:`, error);
+      }
     },
     isEventActive(event) {
       if (event in this.listeningEvents) {
