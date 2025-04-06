@@ -36,7 +36,13 @@ async function notifyCallToUserV2(friend, callType) {
   let audio = sounds.call;
   audio.currentTime = 0;
   audio.loop = true;
-  await audio.play();
+
+  try {
+    await audio.play();
+
+  } catch (error) {
+    console.warn("Não interagiu com o site, não foi possível tocar o som.");
+  }
 
   const friendId = friend.uid;
   const callMessage = JSON.stringify({

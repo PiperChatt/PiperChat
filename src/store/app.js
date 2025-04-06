@@ -3,7 +3,7 @@ import { defineStore } from "pinia";
 import { HubConnectionBuilder } from "@microsoft/signalr";
 import SimplePeer from "simple-peer/simplepeer.min.js";
 import { useSoundStore } from "@/store/sounds";
-import { getCameraResolutions, testCameraResolutions } from '@/utils/camera'
+import { getCameraResolutions, testCameraResolutions } from "@/utils/camera";
 
 export const useAppStore = defineStore("app", {
   state: () => ({
@@ -106,7 +106,11 @@ export const useAppStore = defineStore("app", {
               this.signalQueue.signals[friendId] = [signalDataParsed];
             }
 
-            if (!(friendId in this.peers) || this.peers[friendId].closed || this.peers[friendId].destroyed) {
+            if (
+              !(friendId in this.peers) ||
+              this.peers[friendId].closed ||
+              this.peers[friendId].destroyed
+            ) {
               console.log("Creating new peer");
               this.peers[friendId] = new SimplePeer({
                 initiator: false,
@@ -132,7 +136,14 @@ export const useAppStore = defineStore("app", {
                   console.log("CALL");
                   this.sounds.call.currentTime = 0;
                   this.sounds.call.loop = true;
-                  await this.sounds.call.play();
+
+                  try {
+                    await this.sounds.call.play();
+                  } catch (error) {
+                    console.warn(
+                      "Não interagiu com o site, não foi possível tocar o som."
+                    );
+                  }
 
                   this.eventQueue.push({
                     type: "startCall",
@@ -309,7 +320,7 @@ export const useAppStore = defineStore("app", {
         if (callType == "audio") {
           mediaStream = await navigator.mediaDevices.getUserMedia({
             audio: true,
-            video: false
+            video: false,
           });
         } else if (callType == "video") {
           mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -317,7 +328,7 @@ export const useAppStore = defineStore("app", {
             video: {
               width: higherResolutions[0].resolutions.width,
               height: higherResolutions[0].resolutions.height,
-              facingMode: 'user'
+              facingMode: "user",
             },
           });
         }
@@ -413,7 +424,9 @@ export const useAppStore = defineStore("app", {
      * @param {Object} friend - The friend object containing information about the peer.
      */
     async addStreamToPeerConnection(friend, callType) {
-      console.log(`Adding stream to peer connection for friend: ${friend.uid} with callType: ${callType}`);
+      console.log(
+        `Adding stream to peer connection for friend: ${friend.uid} with callType: ${callType}`
+      );
       if (friend.uid in this.peers) {
         this.peers[friend.uid].addStream(await this.getMediaStream(callType));
       } else {

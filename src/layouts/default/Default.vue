@@ -167,6 +167,8 @@ function newCall(callData) {
     userCalling: callData.userCalling,
     callType: callData.callType
   }
+
+  store.sounds.call.play();
 }
 
 // onMounted(() => {
