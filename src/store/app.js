@@ -3,7 +3,7 @@ import { defineStore } from "pinia";
 import { HubConnectionBuilder } from "@microsoft/signalr";
 import SimplePeer from "simple-peer/simplepeer.min.js";
 import { useSoundStore } from "@/store/sounds";
-import { getCameraResolutions, testCameraResolutions } from "@/utils/camera";
+import { getCameraResolutions } from "@/utils/camera";
 import { isOnlyAudioCall } from "@/utils/tracks";
 
 export const useAppStore = defineStore("app", {
@@ -132,6 +132,7 @@ export const useAppStore = defineStore("app", {
 
               peer.on("data", async (data) => {
                 const message = JSON.parse(data);
+                console.log('[toggle] aqui modafoca', message)
                 if (message.type === "message") {
                   let friend = this.friends.list.find(
                     (friend) => friend.data.uid === friendId
@@ -178,6 +179,18 @@ export const useAppStore = defineStore("app", {
                     this.friends.dict[friendId].data,
                     message.data.callType
                   );
+                } else if (message.type === 'video-status') {
+                  if (message.enabled === false) {
+                    console.log('[topggle] eeeentrei babt')
+                    this.toggleCallasOnlyAudio(true)
+                    this.eventQueue.push({
+                      type: "removeStream",
+                      data: {
+                        type: 'video',
+                        userCalling: this.friends.dict[friendId].data,
+                      },
+                    });
+                  }
                 }
 
                 console.log("Data received: ", message);
@@ -192,6 +205,7 @@ export const useAppStore = defineStore("app", {
                     userCalling: this.friends.dict[friendId].data,
                   },
                 });
+
               });
 
               peer.on("connect", () => {
@@ -200,11 +214,11 @@ export const useAppStore = defineStore("app", {
 
               peer.on("close", () => {
                 this.cleanupPeerConnection(friendId);
-                console.log("Peer connection closed:", friendId);
+                console.log("[toggle]Peer connection closed:", friendId);
               });
 
               peer.on("error", (err) => {
-                console.error("Peer connection error:", err);
+                console.error("[toggle]Peer connection error:", err);
                 this.cleanupPeerConnection(friendId);
               });
             }
@@ -353,11 +367,11 @@ export const useAppStore = defineStore("app", {
           });
         }
 
-        if (this.mediaStream) {
-          return this.mediaStream;
-        }
+        // if (this.mediaStream) {
+        //   return this.mediaStream;
+        // }
 
-        console.log("Creating new media stream");
+        console.log("[toggle]Creating new media stream");
 
         this.mediaStreamLoading = true;
         const higherResolutions = await getCameraResolutions();

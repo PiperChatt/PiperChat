@@ -150,6 +150,9 @@ watch(() => store.eventQueue[0], (event) => {
       console.log(friendView.value);
 
       friendView.value.addStream(event.data.stream, event.data.userCalling.uid);
+    } else if (event.type == 'removeStream') {
+      friendView.value.removeStream( event.data.userCalling.uid, event.data.type);
+
     } else if (event.type == 'callRejected') {
       incommingCall.value = {
         active: false,

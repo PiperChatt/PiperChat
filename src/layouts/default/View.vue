@@ -76,6 +76,8 @@ import { defineProps, reactive, toRefs } from "vue";
 import { watchRoom, joinRoom, saveUserSignal, getConfiguration, saveReadyUser, STATUS, closeConnection } from '@/scripts/signalingAPI';
 import SimplePeer from 'simple-peer/simplepeer.min.js';
 import { isOnlyAudioCall } from '@/utils/tracks';
+import { getCameraResolutions } from "@/utils/camera";
+
 // import SimplePeer from 'simple-peer';
 
 const props = defineProps({
@@ -156,6 +158,18 @@ function createSimplePeerForActiveFriend() {
         },
       });
       await store.getMediaStream(message.data.callType);
+    } else if (message.type === 'video-status') {
+      if (message.enabled === false) {
+        console.log('[topggle] eeeentrei babt')
+        store.toggleCallasOnlyAudio(true)
+        store.eventQueue.push({
+          type: "removeStream",
+          data: {
+            type: 'video',
+            userCalling: store.friends.dict[store.currentCallInfo.friend.uid].data,
+          },
+        });
+      }
     }
 
     console.log("data", message)
@@ -169,9 +183,14 @@ function createSimplePeerForActiveFriend() {
     console.log('error', data)
   })
   peer.on('stream', (stream) => {
-    console.log('[onStream] todo mundo passa aqui')
+    console.log('[toggle] todo mundo passa aqui')
     store.toggleCallasOnlyAudio(isOnlyAudioCall(stream));
     addStream(stream, currentFriendId);
+  })
+
+  peer.on('track', (track, stream) => {
+    console.log('[toggle]t aah safado')
+
   })
 }
 
@@ -193,16 +212,60 @@ function toggleMute() {
   }
 }
 
-function toggleCamera() {
-  if (store.mediaStream) {
-    const videoTracks = store.mediaStream.getVideoTracks();
-    videoTracks.forEach(track => {
-      track.enabled = !track.enabled;
+async function toggleCamera() {
+  console.log('[toggle] vamo vendo: ', store.mediaStream);
+  const peer = store.peers[store.currentCallInfo.friend.uid];
+  const videoTracks = store.mediaStream.getVideoTracks();
+  const isVideoEnabled = videoTracks.some(track => track.readyState === 'live');
+
+  console.log('[toggle] Video track states:', videoTracks.map(t => t.readyState));
+
+  if (!isVideoEnabled) {
+    console.log('[toggle] Ligando câmera');
+
+    store.getMediaStream('video');
+
+    const higherResolutions = await getCameraResolutions();
+    const newStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        width: higherResolutions[0].resolutions.width,
+        height: higherResolutions[0].resolutions.height,
+        facingMode: "user",
+      },
+      audio: true, // você já tem áudio da chamada anterior
     });
-    isCameraOff.value = videoTracks.length > 0 ? !videoTracks[0].enabled : true;
-    console.log(`Camera ${isCameraOff.value ? 'disabled' : 'enabled'}`);
+
+    const newTrack = newStream.getVideoTracks()[0];
+    // store.mediaStream.addTrack(newTrack);
+    // Realiza o replace
+    peer.addTrack(newTrack, newStream);
+    isCameraOff.value = false;
+    
+    
+    
+  } else {
+    console.log('[toggle] Desligando câmera', videoTracks);
+    videoTracks.forEach((track) => {
+      console.log('[toggle] trabalhando com essa:: ', track);
+      if (track.readyState === 'ended') {
+        store.mediaStream.removeTrack(track);
+        peer.removeTrack(track, store.mediaStream);
+      } else if (track.readyState === 'live') {
+        track.stop();
+      }
+
+    })
+    // const oldTrack = videoTracks[0];
+    
+    // Para a câmera local
+    
+    // Remove visualmente e logicamente do SimplePeer
+    peer.send(JSON.stringify({ type: 'video-status', enabled: false }));
+    isCameraOff.value = true;
+
   }
 }
+
 
 function sendNewMessage() {
   if (!message.value) return
@@ -235,42 +298,117 @@ const showLocalVideoPreview = (stream) => {
 const addStream = (stream, userId) => {
   console.log("[addStream] sou chamado de qualquer forma: ", stream.getTracks());
 
-  const videoContainer = document.getElementById("videos")
-  const videoElement = document.createElement('video')
-  videoElement.setAttribute('controls', true);
-  videoElement.autoplay = true
-  videoElement.srcObject = stream
-  videoElement.id = `${userId}-video`
-  videoElement.className = 'video-element'
-  videoElement.style.maxWidth = "100%";
-  videoElement.style.maxHeight = "100%";
-  videoElement.style.objectFit = "cover";
-  videoElement.style.width = "100%";
-  videoElement.style.height = "100%";
-  videoElement.style.margin = "0 auto";
+  const videoContainer = document.getElementById("videos");
 
-  videoElement.onloadedmetadata = () => {
-    videoElement.play()
+  // 🔊 AUDIO 
+  const audioTracks = stream.getAudioTracks();
+  if (audioTracks.length > 0) {
+    const audioStream = new MediaStream(audioTracks);
+    const audioElement = document.createElement('audio');
+    audioElement.autoplay = true;
+    audioElement.srcObject = audioStream;
+    audioElement.id = `${userId}-audio`;
+    audioElement.style.display = 'none'; // invisível
+    videoContainer.appendChild(audioElement);
   }
-  videoContainer.appendChild(videoElement)
-  userVideoLoaded.value = true;
 
+  // 🎥 VIDEO
+  const videoTracks = stream.getVideoTracks();
+  if (videoTracks.length > 0) {
+    const videoStream = new MediaStream(videoTracks);
+    const videoElement = document.createElement('video');
+    videoElement.setAttribute('playsinline', 'true');
+    videoElement.autoplay = true;
+    videoElement.srcObject = videoStream;
+    videoElement.id = `${userId}-video`;
+    videoElement.className = 'video-element';
+    videoElement.style.maxWidth = "100%";
+    videoElement.style.maxHeight = "100%";
+    videoElement.style.objectFit = "cover";
+    videoElement.style.width = "100%";
+    videoElement.style.height = "100%";
+    videoElement.style.margin = "0 auto";
+
+    videoElement.onloadedmetadata = () => {
+      videoElement.play();
+    };
+
+    videoContainer.appendChild(videoElement);
+  }
+
+  userVideoLoaded.value = true;
   isMuted.value = false;
   isCameraOff.value = false;
-}
+};
 
-const removeStream = (userId) => {
+
+
+// const removeStream = (userId, kind = 'both') => {
+//   console.log('[toggle] to sendo chamado sim: ', userId);
+//   try {
+//     const videoContainer = document.getElementById("videos");
+//     const videoElement = document.getElementById(`${userId}-video`);
+//     const stream = videoElement.srcObject;
+
+//     if (!stream) return;
+
+//     // Define quais tracks remover
+//     let tracksToRemove = [];
+//     if (kind === 'audio') {
+//       tracksToRemove = stream.getAudioTracks();
+//     } else if (kind === 'video') {
+//       console.log('[toggle] caiu aqui sim ============', stream.getVideoTracks())
+//       tracksToRemove = stream.getVideoTracks();
+//     } else {
+//       tracksToRemove = stream.getTracks(); // padrão: tudo
+//     }
+
+//     tracksToRemove.forEach(t => t.stop()); // para a captura
+//     tracksToRemove.forEach(t => stream.removeTrack(t)); // remove da stream
+
+//   // Se removeu o vídeo, esconde o <video>, mas mantém o áudio rolando
+//     if (kind === 'video' && stream.getAudioTracks().length > 0) {
+//       videoElement.style.display = 'none'; // Oculta o quadrado pret
+//       console.log('[toggle] depois ============', videoElement)
+
+//     }
+//     // Se não sobrar nenhuma track, remove o elemento
+//     if (stream.getTracks().length === 0) {
+//       console.log('[toggle] PERA PERA PERA PERA PERA');
+//       videoElement.srcObject = null;
+//       videoContainer.removeChild(videoElement);
+//     }
+
+//   } catch (e) {
+//     console.error("Error removing stream ", e);
+//   }
+// };
+const removeStream = (userId, kind='both') => {
+  console.log('[toggle] to sendo chamado sim');
   try {
     const videoContainer = document.getElementById("videos")
-    const videoElement = document.getElementById(`${userId}-video`)
-    const tracks = videoElement.srcObject.getTracks()
-    tracks.forEach(t => t.stop())
-    videoElement.srcObject = null
-    videoContainer.removeChild(videoElement)
+    if (kind === 'video' || kind === 'both') {
+      const videoElement = document.getElementById(`${userId}-video`)
+      const videoTracks = videoElement.srcObject.getVideoTracks()
+      videoTracks.forEach(t => t.stop())
+      videoElement.srcObject = null
+      videoContainer.removeChild(videoElement)
+    }
+    if (kind === 'audio' || kind === 'both') {
+      const audioElement = document.getElementById(`${userId}-audio`)
+      const audioTracks = audioElement.srcObject.getAudioTracks()
+      audioTracks.forEach(t => t.stop())
+      audioElement.srcObject = null
+      videoContainer.removeChild(audioElement)
+    }
+
+
   } catch (e) {
     console.error("Error removing stream ", e)
   }
-}
+};
+
+
 
 
 
@@ -296,6 +434,7 @@ async function friendHungUp(friend) {
 
 defineExpose({
   addStream,
+  removeStream,
   friendHungUp
 })
 
