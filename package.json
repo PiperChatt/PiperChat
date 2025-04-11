@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite --host",
+    "server": "cd SignalingServer/SignalingServer && dotnet run --project=SignalingServer.csproj",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --fix --ignore-path .gitignore"

@@ -6,8 +6,23 @@
           <v-col :cols="12" class="video-col pa-0">
             <v-progress-circular v-if="!userVideoLoaded" class="loader" color="primary" indeterminate :size="68"
               :width="6" />
-            <div id="videos" class="videos-container">
+            <div v-show="!store.currentCallInfo.audioCall" id="videos" class="videos-container">
             </div>
+            <v-row
+              v-if="store.currentCallInfo.audioCall"
+              class="audio-avatar"
+            >
+              <v-avatar
+                :image="store.currentCallInfo.friend.photoURL"
+                size="150"
+                class="elevation-5"
+              />
+              <v-avatar
+                :image="store.currentUser.photoURL"
+                size="150"
+                class="elevation-5"
+              />
+            </v-row>
           </v-col>
         </v-row>
         <v-row v-if="userVideoLoaded" class="controls-row ma-0 pa-0">
@@ -60,12 +75,15 @@ import { ref, watch, onMounted, onBeforeUnmount, WatchStopHandle, nextTick } fro
 import { defineProps, reactive, toRefs } from "vue";
 import { watchRoom, joinRoom, saveUserSignal, getConfiguration, saveReadyUser, STATUS, closeConnection } from '@/scripts/signalingAPI';
 import SimplePeer from 'simple-peer/simplepeer.min.js';
+import { isOnlyAudioCall } from '@/utils/tracks';
 // import SimplePeer from 'simple-peer';
 
 const props = defineProps({
   selectedFriend: String,
 })
 const store = useAppStore()
+const audioCall = ref(false)
+
 const { selectedFriend } = toRefs(props);
 
 const isMuted = ref(false);
@@ -151,7 +169,8 @@ function createSimplePeerForActiveFriend() {
     console.log('error', data)
   })
   peer.on('stream', (stream) => {
-    console.log('recebi a stream');
+    console.log('[onStream] todo mundo passa aqui')
+    store.toggleCallasOnlyAudio(isOnlyAudioCall(stream));
     addStream(stream, currentFriendId);
   })
 }
@@ -198,7 +217,6 @@ const showLocalVideoPreview = (stream) => {
   const videoElement = document.createElement('video')
   videoElement.setAttribute('controls', true);
   videoElement.autoplay = true
-  videoElement.muted = true
   videoElement.className = 'video-element local-video'
   videoElement.style.maxWidth = "100%";
   videoElement.style.maxHeight = "100%";
@@ -215,13 +233,12 @@ const showLocalVideoPreview = (stream) => {
   videoContainer.appendChild(videoElement)
 }
 const addStream = (stream, userId) => {
-  console.log(store.getVideoCallStatus);
+  console.log("[addStream] sou chamado de qualquer forma: ", stream.getTracks());
 
   const videoContainer = document.getElementById("videos")
   const videoElement = document.createElement('video')
   videoElement.setAttribute('controls', true);
   videoElement.autoplay = true
-  videoElement.muted = true
   videoElement.srcObject = stream
   videoElement.id = `${userId}-video`
   videoElement.className = 'video-element'
@@ -423,5 +440,14 @@ span {
   background-color: #323338;
   z-index: 1000;
   box-shadow: 0 -1px 5px rgba(0, 0, 0, 0.1);
+}
+
+.audio-avatar {
+  background-color: red;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  width: 100%;
 }
 </style>

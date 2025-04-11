@@ -4,6 +4,7 @@ import { HubConnectionBuilder } from "@microsoft/signalr";
 import SimplePeer from "simple-peer/simplepeer.min.js";
 import { useSoundStore } from "@/store/sounds";
 import { getCameraResolutions, testCameraResolutions } from "@/utils/camera";
+import { isOnlyAudioCall } from "@/utils/tracks";
 
 export const useAppStore = defineStore("app", {
   state: () => ({
@@ -92,7 +93,7 @@ export const useAppStore = defineStore("app", {
 
       this.signalRConnection = new HubConnectionBuilder()
         .withUrl(
-          `http://localhost:5285/signal?UserID=${this.currentUser.uid}`,
+          `http://192.168.0.77:5285/signal?UserID=${this.currentUser.uid}`,
           { withCredentials: false }
         )
         .withAutomaticReconnect()
@@ -183,7 +184,7 @@ export const useAppStore = defineStore("app", {
               });
 
               peer.on("stream", (stream) => {
-                console.log("recebi a stream");
+                this.toggleCallasOnlyAudio(isOnlyAudioCall(stream))
                 this.eventQueue.push({
                   type: "stream",
                   data: {
@@ -434,6 +435,9 @@ export const useAppStore = defineStore("app", {
     },
     setCallInactive() {
       this.currentCallInfo = null;
+    },
+    toggleCallasOnlyAudio(value) {
+      this.currentCallInfo.audioCall = value;
     },
     setActiveCall(friend) {
       this.currentCallInfo = {

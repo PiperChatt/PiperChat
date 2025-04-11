@@ -1,4 +1,4 @@
-@SignalingServer_HostAddress = http://localhost:5285
+@SignalingServer_HostAddress = http://0.0.0.0:5285
 
 GET {{SignalingServer_HostAddress}}/weatherforecast/
 Accept: application/json

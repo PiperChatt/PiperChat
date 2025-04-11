@@ -3,26 +3,12 @@ import { useAppStore } from "@/store/app";
 import { db } from "@/firebase";
 import {
   ref,
-  runTransaction,
-  onValue,
-  update,
   remove,
 } from "firebase/database";
-import { getUserInfoByUID } from "@/firebase/userHelper";
-import { v4 as uuidv4 } from "uuid";
-import { createRoom } from "./signalingAPI";
-import { generateRoomKey } from "@/firebase/userHelper";
 
 const store = useAppStore();
 const sounds = useSoundStore();
 
-async function startWebRtcSignaling(friend) {
-  const roomKey = generateRoomKey(
-    store.currentUser.uid,
-    store.activeFriend.uid
-  );
-  const roomRef = ref(db, `rooms/${roomKey}`);
-}
 
 function waitFor(millisec) {
   return new Promise((resolve) => {
@@ -115,13 +101,4 @@ async function startCall(friend, callType) {
   store.getMediaStream(callType);
   store.setActiveCall(friend);
   await notifyCallToUserV2(friend, callType);
-}
-
-function deleteCallRoom() {
-  const documentRef = ref(db, `room/${store.incommingCallInfo.roomId}`);
-  remove(documentRef, null)
-    .then(() => {})
-    .catch((error) => {
-      console.error("Error removing document: ", error);
-    });
 }
