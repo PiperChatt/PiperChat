@@ -199,6 +199,11 @@ async function onAcceptCallClick() {
   store.addStreamToPeerConnection(userCalling, callType);
   store.peers[userCalling.uid].send(JSON.stringify({ type: 'callAccepted', data: { callType } }));
   store.acceptCall();
+  if (callType === 'audio') {
+    console.log('[toggle] e tá caindo aqui? ');
+    store.toggleCallasOnlyAudio(true);
+    store.toggleCameraOff(true);
+  }
   incommingCall.value = {
     active: false,
     userCalling: null,

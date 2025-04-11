@@ -9,7 +9,7 @@
             <div v-show="!store.currentCallInfo.audioCall" id="videos" class="videos-container">
             </div>
             <v-row
-              v-if="store.currentCallInfo.audioCall"
+              v-if="store.currentCallInfo.audioCall && userVideoLoaded"
               class="audio-avatar"
             >
               <v-avatar
@@ -31,8 +31,8 @@
               <v-btn @click="toggleMute" :color="isMuted ? 'grey' : 'primary'" icon class="ma-2">
                 <v-icon>{{ isMuted ? 'mdi-microphone-off' : 'mdi-microphone' }}</v-icon>
               </v-btn>
-              <v-btn @click="toggleCamera" :color="isCameraOff ? 'grey' : 'primary'" icon class="ma-2">
-                <v-icon>{{ isCameraOff ? 'mdi-video-off' : 'mdi-video' }}</v-icon>
+              <v-btn @click="toggleCamera" :color="store.isCameraOff ? 'grey' : 'primary'" icon class="ma-2">
+                <v-icon>{{ store.isCameraOff ? 'mdi-video-off' : 'mdi-video' }}</v-icon>
               </v-btn>
               <v-btn @click="hangUp" icon="mdi-phone-hangup" density="default" color="red" class="ma-2">
               </v-btn>
@@ -89,7 +89,7 @@ const audioCall = ref(false)
 const { selectedFriend } = toRefs(props);
 
 const isMuted = ref(false);
-const isCameraOff = ref(false);
+// const isCameraOff = ref(false);
 
 // TODO: O status de "Em chamada" é global. Então, quando troca de usuário, o vídeo vai permanecer na tela. Mudar esse estado para estar atrelado ao usuário selecionado.'
 watch(() => store.friends.dict[store.activeFriend.uid]?.status, (newStatus) => {
@@ -145,6 +145,10 @@ function createSimplePeerForActiveFriend() {
       console.log('callAccepted');
       store.acceptCall();
       await store.addStreamToPeerConnection(currentFriend, message.data.callType);
+      if (message.data.callType === 'audio') {
+        store.toggleCallasOnlyAudio(true);
+        store.toggleCameraOff(true);
+      }
     } else if (message.type === "callRejected") {
       console.log('callRejected');
       await friendHungUp(currentFriend);
@@ -183,8 +187,8 @@ function createSimplePeerForActiveFriend() {
     console.log('error', data)
   })
   peer.on('stream', (stream) => {
+    store.toggleCallasOnlyAudio(isOnlyAudioCall(stream))
     console.log('[toggle] todo mundo passa aqui')
-    store.toggleCallasOnlyAudio(isOnlyAudioCall(stream));
     addStream(stream, currentFriendId);
   })
 
@@ -239,7 +243,9 @@ async function toggleCamera() {
     // store.mediaStream.addTrack(newTrack);
     // Realiza o replace
     peer.addTrack(newTrack, newStream);
-    isCameraOff.value = false;
+    peer.send(JSON.stringify({ type: 'video-status', enabled: true }));
+
+    store.isCameraOff = false;
     
     
     
@@ -261,7 +267,7 @@ async function toggleCamera() {
     
     // Remove visualmente e logicamente do SimplePeer
     peer.send(JSON.stringify({ type: 'video-status', enabled: false }));
-    isCameraOff.value = true;
+    store.isCameraOff = true;
 
   }
 }
@@ -338,7 +344,6 @@ const addStream = (stream, userId) => {
 
   userVideoLoaded.value = true;
   isMuted.value = false;
-  isCameraOff.value = false;
 };
 
 
@@ -421,7 +426,7 @@ function freeCam() {
     store.mediaStream = null;
 
     isMuted.value = false;
-    isCameraOff.value = false;
+    store.isCameraOff = false;
   }
 }
 

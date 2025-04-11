@@ -100,5 +100,9 @@ async function startCall(friend, callType) {
   console.log(friend);
   store.getMediaStream(callType);
   store.setActiveCall(friend);
+  if(callType === 'audio') {
+    console.log('[debug] cai aqui');
+    store.toggleCameraOff(true);
+  }
   await notifyCallToUserV2(friend, callType);
 }

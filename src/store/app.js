@@ -32,6 +32,7 @@ export const useAppStore = defineStore("app", {
     },
     currentUser: {},
     currentCallInfo: null,
+    isCameraOff: false,
     eventQueue: [],
     isCalling: false,
     incommingCallInfo: null,
@@ -173,12 +174,13 @@ export const useAppStore = defineStore("app", {
                     },
                   });
                 } else if (message.type === "callAccepted") {
-                  console.warn("Call accepted - CAIU AQUI.");
+                  console.log("[toggle]Call accepted - CAIU AQUI.");
                   this.acceptCall();
                   await this.addStreamToPeerConnection(
                     this.friends.dict[friendId].data,
                     message.data.callType
                   );
+                  
                 } else if (message.type === 'video-status') {
                   if (message.enabled === false) {
                     console.log('[topggle] eeeentrei babt')
@@ -452,6 +454,10 @@ export const useAppStore = defineStore("app", {
     },
     toggleCallasOnlyAudio(value) {
       this.currentCallInfo.audioCall = value;
+    },
+    toggleCameraOff(value) {
+      console.log('[debug] e está caindo aqui')
+      this.isCameraOff = value;
     },
     setActiveCall(friend) {
       this.currentCallInfo = {
