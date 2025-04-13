@@ -17,17 +17,23 @@
                 size="150"
                 class="elevation-5"
               />
-              <v-avatar
-                :image="store.currentUser.photoURL"
-                size="150"
-                class="elevation-5"
-              />
             </v-row>
           </v-col>
         </v-row>
-        <v-row v-if="userVideoLoaded" class="controls-row ma-0 pa-0">
-          <v-col class="d-flex justify-center pa-0">
-            <div class="call-controls">
+        <v-row v-if="userVideoLoaded" class="controls-row ma-5">
+          <v-col :cols="5">
+            <v-row class="d-flex flex-row pt-4">
+              <v-btn variant="plain" rounded @click="changeVolume('-')">
+                <v-icon>mdi-volume-minus</v-icon>
+              </v-btn>
+              <v-slider v-model="audioVolume" :max="maxVolume" :min="minVolume" :step="volumeStep" thumb-label color="primary" class="flex-grow-1 mx-3" />
+              <v-btn variant="plain" rounded @click="changeVolume('+')">
+                <v-icon>mdi-volume-plus</v-icon>
+              </v-btn>
+            </v-row>
+          </v-col>
+          <v-col :cols="6">
+            <v-row>
               <v-btn @click="toggleMute" :color="isMuted ? 'grey' : 'primary'" icon class="ma-2">
                 <v-icon>{{ isMuted ? 'mdi-microphone-off' : 'mdi-microphone' }}</v-icon>
               </v-btn>
@@ -36,9 +42,9 @@
               </v-btn>
               <v-btn @click="hangUp" icon="mdi-phone-hangup" density="default" color="red" class="ma-2">
               </v-btn>
-            </div>
+            </v-row>
           </v-col>
-        </v-row>
+      </v-row>
       </div>
       <div class="list-container pa-6" :class="{ 'chat-with-video': store.getVideoCallStatus && userVideoLoaded }">
         <div class="messages">
@@ -85,10 +91,15 @@ const props = defineProps({
 })
 const store = useAppStore()
 const audioCall = ref(false)
+const maxVolume = 100;
+const minVolume = 0;
+const volumeStep = 1;
+const buttomVolumeStep = 10;
 
 const { selectedFriend } = toRefs(props);
 
 const isMuted = ref(false);
+const audioVolume = ref(100)
 // const isCameraOff = ref(false);
 
 // TODO: O status de "Em chamada" é global. Então, quando troca de usuário, o vídeo vai permanecer na tela. Mudar esse estado para estar atrelado ao usuário selecionado.'
@@ -107,6 +118,10 @@ watch(() => store.friends.dict[store.activeFriend.uid]?.status, (newStatus) => {
   } else {
     console.log('Friend is still offline');
   }
+})
+
+watch(() => audioVolume.value, (newVal, oldVal) => {
+  console.log('changed my friend: ', newVal)
 })
 
 function isConnectionCreatedForActiveFriend() {
@@ -449,6 +464,18 @@ async function hangUp() {
   userVideoLoaded.value = false;
   store.rejectCall(store.activeFriend);
 }
+function changeVolume(operation: '+' | '-') {
+  if (operation === '+') {
+    if (audioVolume.value < 100) {
+      audioVolume.value += buttomVolumeStep;
+    }
+  } else if (operation === '-' ) {
+    if (audioVolume.value > 0) {
+      audioVolume.value -= buttomVolumeStep;
+    }
+  }
+}
+
 </script>
 
 
@@ -587,11 +614,24 @@ span {
 }
 
 .audio-avatar {
-  background-color: red;
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100%;
   width: 100%;
 }
+
+.slider-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.v-slider.v-input--horizontal > .v-input__control {
+  /* min-height: 0px; */
+}
+/* .v-input {
+  align-content: end;
+} */
+
 </style>
