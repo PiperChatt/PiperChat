@@ -33,6 +33,7 @@ export const useAppStore = defineStore("app", {
     currentUser: {},
     currentCallInfo: null,
     isCameraOff: false,
+    isMuted: false,
     eventQueue: [],
     isCalling: false,
     incommingCallInfo: null,
@@ -182,13 +183,24 @@ export const useAppStore = defineStore("app", {
                   );
                   
                 } else if (message.type === 'video-status') {
+                  console.log('[toggle] video status: ', message)
                   if (message.enabled === false) {
-                    console.log('[topggle] eeeentrei babt')
                     this.toggleCallasOnlyAudio(true)
                     this.eventQueue.push({
                       type: "removeStream",
                       data: {
                         type: 'video',
+                        userCalling: this.friends.dict[friendId].data,
+                      },
+                    });
+                  }
+                } else if (message.type === 'audio-status') {
+                  console.log('[toggle] audio status: ', message)
+                  if (message.enabled === false) {
+                    this.eventQueue.push({
+                      type: "removeStream",
+                      data: {
+                        type: 'audio',
                         userCalling: this.friends.dict[friendId].data,
                       },
                     });
@@ -200,15 +212,28 @@ export const useAppStore = defineStore("app", {
 
               peer.on("stream", (stream) => {
                 this.toggleCallasOnlyAudio(isOnlyAudioCall(stream))
+                // console.log('[toggle] todo mundo passa aqui back')
+                // this.eventQueue.push({
+                //   type: "stream",
+                //   data: {
+                //     stream,
+                //     userCalling: this.friends.dict[friendId].data,
+                //   },
+                // });
+
+              });
+
+              peer.on('track', (track, stream) => {
+                console.log('[toggle]t aah safado back', track, stream)
                 this.eventQueue.push({
                   type: "stream",
                   data: {
-                    stream,
+                    stream: track,
                     userCalling: this.friends.dict[friendId].data,
                   },
                 });
-
-              });
+            
+              })
 
               peer.on("connect", () => {
                 console.log("Connected to peer:", friendId);
@@ -458,6 +483,10 @@ export const useAppStore = defineStore("app", {
     toggleCameraOff(value) {
       console.log('[debug] e está caindo aqui')
       this.isCameraOff = value;
+    },
+    toggleIsMutted(value) {
+      console.log('[debug] e está caindo aqui')
+      this.isMuted = value;
     },
     setActiveCall(friend) {
       this.currentCallInfo = {

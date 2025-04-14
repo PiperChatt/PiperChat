@@ -149,7 +149,7 @@ watch(() => store.eventQueue[0], (event) => {
     } else if (event.type == "stream") {
       console.log(friendView.value);
 
-      friendView.value.addStream(event.data.stream, event.data.userCalling.uid);
+      friendView.value.addTrack(event.data.stream, event.data.userCalling.uid);
     } else if (event.type == 'removeStream') {
       friendView.value.removeStream( event.data.userCalling.uid, event.data.type);
 

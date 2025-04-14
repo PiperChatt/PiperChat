@@ -1,6 +1,7 @@
 <template>
   <v-main>
     <v-container class="fill-height pa-0 d-flex flex-column">
+      <span>veja: {{ store.currentCallInfo?.audioCall }}</span>
       <div v-if="store.getVideoCallStatus" class="video-section">
         <v-row class="video-container ma-0">
           <v-col :cols="12" class="video-col pa-0">
@@ -34,8 +35,8 @@
           </v-col>
           <v-col :cols="6">
             <v-row>
-              <v-btn @click="toggleMute" :color="isMuted ? 'grey' : 'primary'" icon class="ma-2">
-                <v-icon>{{ isMuted ? 'mdi-microphone-off' : 'mdi-microphone' }}</v-icon>
+              <v-btn @click="toggleMute" :color="store.isMuted ? 'grey' : 'primary'" icon class="ma-2">
+                <v-icon>{{ store.isMuted ? 'mdi-microphone-off' : 'mdi-microphone' }}</v-icon>
               </v-btn>
               <v-btn @click="toggleCamera" :color="store.isCameraOff ? 'grey' : 'primary'" icon class="ma-2">
                 <v-icon>{{ store.isCameraOff ? 'mdi-video-off' : 'mdi-video' }}</v-icon>
@@ -98,9 +99,7 @@ const buttomVolumeStep = 10;
 
 const { selectedFriend } = toRefs(props);
 
-const isMuted = ref(false);
 const audioVolume = ref(100)
-// const isCameraOff = ref(false);
 
 // TODO: O status de "Em chamada" é global. Então, quando troca de usuário, o vídeo vai permanecer na tela. Mudar esse estado para estar atrelado ao usuário selecionado.'
 watch(() => store.friends.dict[store.activeFriend.uid]?.status, (newStatus) => {
@@ -178,13 +177,24 @@ function createSimplePeerForActiveFriend() {
       });
       await store.getMediaStream(message.data.callType);
     } else if (message.type === 'video-status') {
+      console.log('[toggle] video status: ', message)
       if (message.enabled === false) {
-        console.log('[topggle] eeeentrei babt')
         store.toggleCallasOnlyAudio(true)
         store.eventQueue.push({
           type: "removeStream",
           data: {
             type: 'video',
+            userCalling: store.friends.dict[store.currentCallInfo.friend.uid].data,
+          },
+        });
+      }
+    } else if (message.type === 'audio-status') {
+      console.log('[toggle] audio status: ', message)
+      if (message.enabled === false) {
+        store.eventQueue.push({
+          type: "removeStream",
+          data: {
+            type: 'audio',
             userCalling: store.friends.dict[store.currentCallInfo.friend.uid].data,
           },
         });
@@ -203,12 +213,13 @@ function createSimplePeerForActiveFriend() {
   })
   peer.on('stream', (stream) => {
     store.toggleCallasOnlyAudio(isOnlyAudioCall(stream))
-    console.log('[toggle] todo mundo passa aqui')
-    addStream(stream, currentFriendId);
+    // console.log('[toggle] todo mundo passa aqui')
+    // addStream(stream, store.currentCallInfo.friend.uid);
   })
 
   peer.on('track', (track, stream) => {
-    console.log('[toggle]t aah safado')
+    console.log('[toggle]t aah safado', track, stream)
+    addTrack(track, store.currentCallInfo.friend.uid);
 
   })
 }
@@ -220,29 +231,66 @@ onBeforeUnmount(() => {
 const message = ref();
 const userVideoLoaded = ref(false);
 
-function toggleMute() {
-  if (store.mediaStream) {
-    const audioTracks = store.mediaStream.getAudioTracks();
-    audioTracks.forEach(track => {
-      track.enabled = !track.enabled;
+async function toggleMute() {
+  const peer = store.peers[store.currentCallInfo.friend.uid];
+  const audioTracks = store.mediaStream.getAudioTracks();
+  const isAudioEnabled = audioTracks.some(track => track.readyState === 'live');
+
+  if (!isAudioEnabled) {
+    console.log('[toggle] Ligando audio');
+
+
+    const newStream = await navigator.mediaDevices.getUserMedia({
+      video: false,
+      audio: true, // você já tem áudio da chamada anterior
     });
-    isMuted.value = audioTracks.length > 0 ? !audioTracks[0].enabled : false;
-    console.log(`Microphone ${isMuted.value ? 'muted' : 'unmuted'}`);
+
+    const newTrack = newStream.getAudioTracks()[0];
+    store.mediaStream.addTrack(newTrack);
+    // Realiza o replace
+    peer.addTrack(newTrack, store.mediaStream);
+    peer.send(JSON.stringify({ type: 'audio-status', enabled: true }));
+
+    store.isMuted = false;
+    
+    
+    
+  } else {
+    console.log('[toggle] Desligando audio', audioTracks);
+    audioTracks.forEach((track) => {
+      console.log('[toggle] trabalhando com essa:: ', track);
+      if (track.readyState === 'ended') {
+        store.mediaStream.removeTrack(track);
+        peer.removeTrack(track, store.mediaStream);
+      } else if (track.readyState === 'live') {
+        track.stop();
+      }
+
+    })
+    // const oldTrack = videoTracks[0];
+    
+    // Para a câmera local
+    
+    // Remove visualmente e logicamente do SimplePeer
+    peer.send(JSON.stringify({ type: 'audio-status', enabled: false }));
+    store.isMuted = true;
+
   }
+
 }
 
 async function toggleCamera() {
-  console.log('[toggle] vamo vendo: ', store.mediaStream);
   const peer = store.peers[store.currentCallInfo.friend.uid];
   const videoTracks = store.mediaStream.getVideoTracks();
   const isVideoEnabled = videoTracks.some(track => track.readyState === 'live');
+  console.log('[toggle]Era isso que tinha: ', JSON.parse(JSON.stringify(videoTracks)));
 
-  console.log('[toggle] Video track states:', videoTracks.map(t => t.readyState));
+
 
   if (!isVideoEnabled) {
     console.log('[toggle] Ligando câmera');
 
-    store.getMediaStream('video');
+    // store.getMediaStream('video');
 
     const higherResolutions = await getCameraResolutions();
     const newStream = await navigator.mediaDevices.getUserMedia({
@@ -251,13 +299,15 @@ async function toggleCamera() {
         height: higherResolutions[0].resolutions.height,
         facingMode: "user",
       },
-      audio: true, // você já tem áudio da chamada anterior
+      audio: false, // você já tem áudio da chamada anterior
     });
-
+    
     const newTrack = newStream.getVideoTracks()[0];
-    // store.mediaStream.addTrack(newTrack);
+    // store.mediaStream.addTrack(newTrack)
     // Realiza o replace
-    peer.addTrack(newTrack, newStream);
+    store.mediaStream.addTrack(newTrack);
+    peer.addTrack(newTrack, store.mediaStream);
+
     peer.send(JSON.stringify({ type: 'video-status', enabled: true }));
 
     store.isCameraOff = false;
@@ -296,51 +346,30 @@ function sendNewMessage() {
   }
 }
 
-const showLocalVideoPreview = (stream) => {
-  const videoContainer = document.getElementById("videos")
-  const videoElement = document.createElement('video')
-  videoElement.setAttribute('controls', true);
-  videoElement.autoplay = true
-  videoElement.className = 'video-element local-video'
-  videoElement.style.maxWidth = "100%";
-  videoElement.style.maxHeight = "100%";
-  videoElement.style.objectFit = "cover";
-  videoElement.style.width = "100%";
-  videoElement.style.height = "100%";
-  videoElement.style.margin = "0 auto";
-  videoElement.style.padding = "5px";
-
-  videoElement.srcObject = stream
-  videoElement.onloadedmetadata = () => {
-    videoElement.play()
-  }
-  videoContainer.appendChild(videoElement)
-}
-const addStream = (stream, userId) => {
-  console.log("[addStream] sou chamado de qualquer forma: ", stream.getTracks());
+const addTrack = (track, userId) => {
+  if (!track) return;
+  console.log("[toggle] sou chamado de qualquer forma: ", track);
 
   const videoContainer = document.getElementById("videos");
 
-  // 🔊 AUDIO 
-  const audioTracks = stream.getAudioTracks();
-  if (audioTracks.length > 0) {
-    const audioStream = new MediaStream(audioTracks);
+  // Cria uma MediaStream com a track individual
+  const stream = new MediaStream([track]);
+
+  if (track.kind === 'audio') {
+    console.log('[toggle] adding audio track...');
     const audioElement = document.createElement('audio');
     audioElement.autoplay = true;
-    audioElement.srcObject = audioStream;
+    audioElement.srcObject = stream;
     audioElement.id = `${userId}-audio`;
     audioElement.style.display = 'none'; // invisível
     videoContainer.appendChild(audioElement);
-  }
-
-  // 🎥 VIDEO
-  const videoTracks = stream.getVideoTracks();
-  if (videoTracks.length > 0) {
-    const videoStream = new MediaStream(videoTracks);
+    
+  } else if (track.kind === 'video') {
+    console.log('[toggle] adding video track...');
     const videoElement = document.createElement('video');
     videoElement.setAttribute('playsinline', 'true');
     videoElement.autoplay = true;
-    videoElement.srcObject = videoStream;
+    videoElement.srcObject = stream;
     videoElement.id = `${userId}-video`;
     videoElement.className = 'video-element';
     videoElement.style.maxWidth = "100%";
@@ -349,17 +378,17 @@ const addStream = (stream, userId) => {
     videoElement.style.width = "100%";
     videoElement.style.height = "100%";
     videoElement.style.margin = "0 auto";
-
+    
     videoElement.onloadedmetadata = () => {
       videoElement.play();
     };
-
+    
     videoContainer.appendChild(videoElement);
+    store.toggleCallasOnlyAudio(false);
   }
-
   userVideoLoaded.value = true;
-  isMuted.value = false;
 };
+
 
 
 
@@ -404,7 +433,7 @@ const addStream = (stream, userId) => {
 //   }
 // };
 const removeStream = (userId, kind='both') => {
-  console.log('[toggle] to sendo chamado sim');
+  console.log('[toggle] to sendo chamado sim', kind );
   try {
     const videoContainer = document.getElementById("videos")
     if (kind === 'video' || kind === 'both') {
@@ -440,7 +469,7 @@ function freeCam() {
     });
     store.mediaStream = null;
 
-    isMuted.value = false;
+    store.isMuted = false;
     store.isCameraOff = false;
   }
 }
@@ -453,7 +482,7 @@ async function friendHungUp(friend) {
 }
 
 defineExpose({
-  addStream,
+  addTrack,
   removeStream,
   friendHungUp
 })
