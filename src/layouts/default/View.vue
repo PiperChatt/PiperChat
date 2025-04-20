@@ -19,6 +19,9 @@
               <v-btn @click="toggleCamera" :color="isCameraOff ? 'grey' : 'primary'" icon class="ma-2">
                 <v-icon>{{ isCameraOff ? 'mdi-video-off' : 'mdi-video' }}</v-icon>
               </v-btn>
+              <v-btn @click="toggleScreenShare" :color="isScreenSharing ? 'primary' : 'grey'" icon class="ma-2">
+                <v-icon>mdi-monitor-share</v-icon>
+              </v-btn>
               <v-btn @click="hangUp" icon="mdi-phone-hangup" density="default" color="red" class="ma-2">
               </v-btn>
             </div>
@@ -70,11 +73,19 @@ const { selectedFriend } = toRefs(props);
 
 const isMuted = ref(false);
 const isCameraOff = ref(false);
+const isScreenSharing = ref(false);
+
+function getFriendUid(friend) {
+  return friend && 'uid' in friend ? friend.uid : null;
+}
 
 // TODO: O status de "Em chamada" é global. Então, quando troca de usuário, o vídeo vai permanecer na tela. Mudar esse estado para estar atrelado ao usuário selecionado.'
-watch(() => store.friends.dict[store.activeFriend.uid]?.status, (newStatus) => {
-  const activeFriend = store.activeFriend.uid;
-  console.log('watching friendsDict', activeFriend);
+watch(() => {
+  const uid = getFriendUid(store.activeFriend);
+  return uid ? store.friends.dict[uid]?.status : null;
+}, (newStatus) => {
+  const activeFriendUid = getFriendUid(store.activeFriend);
+  console.log('watching friendsDict', activeFriendUid);
 
   if (isConnectionCreatedForActiveFriend()) {
     console.log('Peer already exists');
@@ -90,13 +101,18 @@ watch(() => store.friends.dict[store.activeFriend.uid]?.status, (newStatus) => {
 })
 
 function isConnectionCreatedForActiveFriend() {
-  return store.activeFriend.uid in store.peers && !(store.peers[store.activeFriend.uid].closed || store.peers[store.activeFriend.uid].destroyed);
+  const activeFriendUid = getFriendUid(store.activeFriend);
+  return activeFriendUid &&
+    activeFriendUid in store.peers &&
+    !(store.peers[activeFriendUid].closed || store.peers[activeFriendUid].destroyed);
 }
 
 function createSimplePeerForActiveFriend() {
   const configuration = getConfiguration();
   const currentFriend = store.activeFriend;
-  const currentFriendId = currentFriend.uid;
+  const currentFriendId = getFriendUid(currentFriend);
+
+  if (!currentFriendId) return;
 
   store.peers[currentFriendId] = new SimplePeer({
     initiator: true,
@@ -138,21 +154,31 @@ function createSimplePeerForActiveFriend() {
         },
       });
       await store.getMediaStream(message.data.callType);
+    } else if (message.type === "streamChange" || message.type === "streamReset") {
+      console.log(`Stream ${message.type} received:`, message.data);
+      cleanupVideoElements();
+      console.log("Waiting for new stream from peer...");
     }
 
     console.log("data", message)
   })
+
+  peer.on('stream', (stream) => {
+    console.log('Stream received:', stream);
+    console.log(`Stream has ${stream.getVideoTracks().length} video tracks and ${stream.getAudioTracks().length} audio tracks`);
+    cleanupVideoElements();
+    addStream(stream, currentFriendId);
+  })
+
   peer.on('close', (data) => {
-    store.peers[currentFriendId].destroy();
+    if (store.peers[currentFriendId]) {
+      store.peers[currentFriendId].destroy();
+    }
     delete store.peers[currentFriendId];
     console.log('close: ', data)
   })
   peer.on('error', (data) => {
     console.log('error', data)
-  })
-  peer.on('stream', (stream) => {
-    console.log('recebi a stream');
-    addStream(stream, currentFriendId);
   })
 }
 
@@ -185,21 +211,147 @@ function toggleCamera() {
   }
 }
 
+function toggleScreenShare() {
+  if (store.mediaStream) {
+    if (isScreenSharing.value) {
+      store.mediaStream.getTracks().forEach(track => track.stop());
+      store.mediaStream = null;
+      isScreenSharing.value = false;
+
+      store.getMediaStream("video").then(stream => {
+        const currentFriendId = getFriendUid(store.activeFriend);
+        if (currentFriendId && currentFriendId in store.peers) {
+          store.peers[currentFriendId].send(
+            JSON.stringify({
+              type: "streamReset",
+              data: {
+                changeType: "video",
+                timestamp: Date.now()
+              }
+            })
+          );
+
+          cleanupVideoElements();
+          const peer = store.peers[currentFriendId];
+
+          if (peer.streams && peer.streams.length > 0) {
+            console.log(`Removing ${peer.streams.length} existing streams`);
+            [...peer.streams].forEach(oldStream => {
+              peer.removeStream(oldStream);
+            });
+          }
+
+          setTimeout(() => {
+            peer.addStream(stream);
+            showLocalVideoPreview(stream);
+          }, 200);
+        }
+      });
+    } else {
+      const oldStream = store.mediaStream;
+      store.mediaStream = null;
+
+      store.getMediaStream("screen").then(stream => {
+        const videoTrack = stream.getVideoTracks()[0];
+        if (videoTrack) {
+          videoTrack.onended = () => {
+            isScreenSharing.value = false;
+            toggleScreenShare();
+          };
+
+          const currentFriendId = getFriendUid(store.activeFriend);
+          if (currentFriendId && currentFriendId in store.peers) {
+            store.peers[currentFriendId].send(
+              JSON.stringify({
+                type: "streamReset",
+                data: {
+                  changeType: "screen",
+                  timestamp: Date.now()
+                }
+              })
+            );
+
+            cleanupVideoElements();
+
+            if (oldStream) {
+              oldStream.getTracks().forEach(track => track.stop());
+            }
+
+            const peer = store.peers[currentFriendId];
+
+            if (peer.streams && peer.streams.length > 0) {
+              console.log(`Removing ${peer.streams.length} existing streams`);
+              [...peer.streams].forEach(oldStream => {
+                peer.removeStream(oldStream);
+              });
+            }
+
+            setTimeout(() => {
+              peer.addStream(stream);
+              showLocalVideoPreview(stream);
+            }, 200);
+          }
+        }
+        isScreenSharing.value = true;
+      });
+    }
+  }
+}
+
+function cleanupVideoElements() {
+  console.log("Thoroughly cleaning up ALL video elements");
+  const videoContainer = document.getElementById("videos");
+  if (videoContainer) {
+    console.log(`Video container has ${videoContainer.childNodes.length} children before cleanup`);
+
+    const videoElements = videoContainer.querySelectorAll('video');
+    videoElements.forEach(video => {
+      if (video.srcObject) {
+        try {
+          const tracks = video.srcObject.getTracks();
+          if (tracks) {
+            tracks.forEach(track => {
+              track.stop();
+              console.log(`Stopped track: ${track.kind}`);
+            });
+          }
+          video.srcObject = null;
+          video.pause();
+        } catch (e) {
+          console.error("Error stopping tracks", e);
+        }
+      }
+    });
+
+    while (videoContainer.firstChild) {
+      videoContainer.removeChild(videoContainer.firstChild);
+    }
+
+    console.log(`Video container has ${videoContainer.childNodes.length} children after cleanup`);
+  }
+}
+
 function sendNewMessage() {
   if (!message.value) return
-  if (store.activeFriend.uid in store.peers) {
+  const activeFriendUid = getFriendUid(store.activeFriend);
+  if (activeFriendUid && activeFriendUid in store.peers) {
     store.addMessage(message.value, store.activeFriend)
     message.value = ''
   }
 }
 
 const showLocalVideoPreview = (stream) => {
-  const videoContainer = document.getElementById("videos")
-  const videoElement = document.createElement('video')
-  videoElement.setAttribute('controls', true);
-  videoElement.autoplay = true
-  videoElement.muted = true
-  videoElement.className = 'video-element local-video'
+  const existingLocalVideo = document.querySelector('.local-video');
+  if (existingLocalVideo) {
+    existingLocalVideo.remove();
+  }
+
+  const videoContainer = document.getElementById("videos");
+  const videoElement = document.createElement('video');
+  videoElement.setAttribute('controls', 'true');
+  videoElement.autoplay = true;
+  videoElement.muted = true;
+  videoElement.className = 'video-element local-video';
   videoElement.style.maxWidth = "100%";
   videoElement.style.maxHeight = "100%";
   videoElement.style.objectFit = "cover";
@@ -208,23 +360,27 @@ const showLocalVideoPreview = (stream) => {
   videoElement.style.margin = "0 auto";
   videoElement.style.padding = "5px";
 
-  videoElement.srcObject = stream
+  videoElement.setAttribute('data-stream-type', stream.getVideoTracks().length > 0 ? 'video' : 'audio');
+
+  videoElement.srcObject = stream;
   videoElement.onloadedmetadata = () => {
-    videoElement.play()
-  }
-  videoContainer.appendChild(videoElement)
+    videoElement.play();
+  };
+  videoContainer.appendChild(videoElement);
 }
 const addStream = (stream, userId) => {
-  console.log(store.getVideoCallStatus);
+  console.log(`Adding stream for user ${userId}, stream type: ${stream.getVideoTracks().length > 0 ? 'video' : 'audio'}`);
 
-  const videoContainer = document.getElementById("videos")
-  const videoElement = document.createElement('video')
-  videoElement.setAttribute('controls', true);
-  videoElement.autoplay = true
-  videoElement.muted = true
-  videoElement.srcObject = stream
-  videoElement.id = `${userId}-video`
-  videoElement.className = 'video-element'
+  cleanupVideoElements();
+
+  const videoContainer = document.getElementById("videos");
+  const videoElement = document.createElement('video');
+  videoElement.setAttribute('controls', 'true');
+  videoElement.autoplay = true;
+  videoElement.muted = true;
+  videoElement.srcObject = stream;
+  videoElement.id = `${userId}-video`;
+  videoElement.className = 'video-element';
   videoElement.style.maxWidth = "100%";
   videoElement.style.maxHeight = "100%";
   videoElement.style.objectFit = "cover";
@@ -233,23 +389,30 @@ const addStream = (stream, userId) => {
   videoElement.style.margin = "0 auto";
 
   videoElement.onloadedmetadata = () => {
-    videoElement.play()
-  }
-  videoContainer.appendChild(videoElement)
+    videoElement.play();
+  };
+
+  videoElement.setAttribute('data-stream-type', stream.getVideoTracks().length > 0 ? 'video' : 'audio');
+
+  videoContainer.appendChild(videoElement);
   userVideoLoaded.value = true;
 
   isMuted.value = false;
   isCameraOff.value = false;
+
+  console.log(`Video container now has ${videoContainer.childNodes.length} children`);
 }
 
 const removeStream = (userId) => {
   try {
     const videoContainer = document.getElementById("videos")
-    const videoElement = document.getElementById(`${userId}-video`)
-    const tracks = videoElement.srcObject.getTracks()
-    tracks.forEach(t => t.stop())
-    videoElement.srcObject = null
-    videoContainer.removeChild(videoElement)
+    const videoElement = document.getElementById(`${userId}-video`) as HTMLVideoElement
+    if (videoElement && videoElement.srcObject) {
+      const tracks = videoElement.srcObject.getTracks()
+      tracks.forEach(t => t.stop())
+      videoElement.srcObject = null
+      videoContainer.removeChild(videoElement)
+    }
   } catch (e) {
     console.error("Error removing stream ", e)
   }

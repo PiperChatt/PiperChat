@@ -377,6 +377,11 @@ export const useAppStore = defineStore("app", {
               facingMode: "user",
             },
           });
+        } else if (callType == "screen") {
+          mediaStream = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+            audio: true
+          });
         }
 
         this.setMediaStream(mediaStream);
