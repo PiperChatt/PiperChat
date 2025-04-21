@@ -151,6 +151,7 @@ function createSimplePeerForActiveFriend() {
 
   peer.on('connect', () => {
     console.log('connected');
+    store.setActiveFriendAsConnected();
   })
 
   peer.on('data', async (data) => {
@@ -406,12 +407,6 @@ async function friendHungUp(friend) {
   store.callRejected();
 }
 
-defineExpose({
-  addTrack,
-  removeStream,
-  friendHungUp
-})
-
 async function hangUp() {
   freeCam();
   store.setCallInactive();
@@ -447,6 +442,12 @@ function toggleVolumeMute(): void {
   isVolumeMuted.value = remoteAudioElement.value.muted = !remoteAudioElement.value.muted;
 }
 
+defineExpose({
+  addTrack,
+  removeStream,
+  friendHungUp,
+  createSimplePeerForActiveFriend
+})
 
 </script>
 

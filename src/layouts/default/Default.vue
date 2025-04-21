@@ -55,7 +55,7 @@
           </v-list-item>
         </v-list>
       </v-navigation-drawer>
-      <default-bar />
+      <default-bar @force-friend-connect="handleForceFriendConnect"/>
       <default-view ref="friendView" :selectedFriend="selectedFriend" />
       <!-- Starting call dialog -->
       <v-dialog v-model="store.isCalling" max-width="500">
@@ -223,6 +223,10 @@ async function signOut() {
   } catch (error) {
     console.log("Error while signing out");
   }
+}
+
+function handleForceFriendConnect() {
+  friendView.value.createSimplePeerForActiveFriend();
 }
 
 </script>

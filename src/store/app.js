@@ -5,6 +5,7 @@ import SimplePeer from "simple-peer/simplepeer.min.js";
 import { useSoundStore } from "@/store/sounds";
 import { getCameraResolutions } from "@/utils/camera";
 import { isOnlyAudioCall } from "@/utils/tracks";
+import { isObject } from "@/utils/dataManipulation";
 
 export const useAppStore = defineStore("app", {
   state: () => ({
@@ -95,7 +96,7 @@ export const useAppStore = defineStore("app", {
 
       this.signalRConnection = new HubConnectionBuilder()
         .withUrl(
-          `http://localhost:5285/signal?UserID=${this.currentUser.uid}`,
+          `http://192.168.0.77:5285/signal?UserID=${this.currentUser.uid}`,
           { withCredentials: false }
         )
         .withAutomaticReconnect()
@@ -223,6 +224,7 @@ export const useAppStore = defineStore("app", {
 
               peer.on("connect", () => {
                 console.log("Connected to peer:", friendId);
+                this.setActiveFriendAsConnected();
               });
 
               peer.on("close", () => {
@@ -361,6 +363,17 @@ export const useAppStore = defineStore("app", {
         this.friends.unreadMessages[friend.uid] = false;
       }
     },
+    setActiveFriendAsConnected() {
+      if (isObject(this.activeFriend)) {
+        this.activeFriend.connected = true;
+      }
+    },
+    activeFrindIsConnected() {
+      if (isObject(this.activeFriend)) {
+        return !!this.activeFriend.connected;
+      }
+      return false;
+    },
     setFriendsList(friends) {
       this.friends.list = friends;
     },
@@ -477,6 +490,9 @@ export const useAppStore = defineStore("app", {
         active: true,
         friend,
       };
+    },
+    setCurrentCallAsInactive() {
+      this.currentCallInfo = null;
     },
     acceptCall() {
       this.sounds.call.pause();
