@@ -5,9 +5,9 @@
         <v-card width="80%" class="align-center justify-center">
           <v-card-title>Login</v-card-title>
           <v-card-text>
-            <v-text-field v-model="email" placeholder="Login" prepend-inner-icon="mdi-email-outline" variant="outlined"
+            <v-text-field v-model="email" @keydown.enter="doLogin" placeholder="Login" prepend-inner-icon="mdi-email-outline" variant="outlined"
               density="compact" />
-            <v-text-field v-model="password" placeholder="Passoword" :type="passwordVisible ? 'text' : 'password'"
+            <v-text-field v-model="password" @keydown.enter="doLogin" placeholder="Passoword" :type="passwordVisible ? 'text' : 'password'"
               :append-inner-icon="passwordVisible ? 'mdi-eye-off' : 'mdi-eye'"
               @click:append-inner="passwordVisible = !passwordVisible" prepend-inner-icon="mdi-lock-outline"
               variant="outlined" density="compact" />
