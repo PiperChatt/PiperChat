@@ -22,6 +22,7 @@ async function notifyCallToUserV2(friend, callType) {
   let audio = sounds.call;
   audio.currentTime = 0;
   audio.loop = true;
+  store.setPopUpCallingAsActive();
 
   try {
     await audio.play();
@@ -54,6 +55,8 @@ async function notifyCallToUserV2(friend, callType) {
           audio.pause();
           store.rejectCall(friend);
           store.callRejected();
+          this.setPopUpCallingAsInactive();
+
         }
       },
       10000,
@@ -86,6 +89,7 @@ async function notifyCallToUserV2(friend, callType) {
   audio.pause();
   store.rejectCall(friend);
   store.callRejected();
+  this.setPopUpCallingAsInactive();
 }
 
 export async function startVideoCall(friend) {

@@ -1,11 +1,9 @@
 <template>
   <v-main>
     <v-container class="fill-height pa-0 d-flex flex-column">
-      <div v-if="store.getVideoCallStatus" class="video-section">
+      <div v-if="store.getVideoCallStatus && !store.isPopUpCallActive" class="video-section">
         <v-row class="video-container ma-0">
           <v-col :cols="12" class="video-col pa-0">
-            <v-progress-circular v-if="!userVideoLoaded" class="loader" color="primary" indeterminate :size="68"
-              :width="6" />
             <div v-show="!store.currentCallInfo.audioCall" id="videos" class="videos-container">
             </div>
             <v-row
@@ -179,6 +177,7 @@ function createSimplePeerForActiveFriend() {
     } else if (message.type === 'callAccepted') {
       console.log('callAccepted');
       store.acceptCall();
+      store.setPopUpCallingAsInactive();
       await store.addStreamToPeerConnection(currentFriend, message.data.callType);
       if (message.data.callType === 'audio') {
         store.toggleCallasOnlyAudio(true);
@@ -189,6 +188,8 @@ function createSimplePeerForActiveFriend() {
       await friendHungUp(currentFriend);
     } else if (message.type === "startCall") {
       console.log("CALL received");
+      store.setCallInactive();
+      store.setPopUpCallingAsInactive();
       store.eventQueue.push({
         type: "startCall",
         data: {
@@ -424,6 +425,7 @@ function freeCam() {
 async function friendHungUp(friend) {
   freeCam();
   store.setCallInactive();
+  store.setPopUpCallingAsInactive();
   userVideoLoaded.value = false;
   store.callRejected();
 }
@@ -432,6 +434,7 @@ async function hangUp() {
   freeCam();
   store.setCallInactive();
   userVideoLoaded.value = false;
+  store.setPopUpCallingAsInactive();
   store.rejectCall(store.activeFriend);
 }
 function changeVolume(operation: '+' | '-') {
@@ -468,16 +471,13 @@ async function toggleScreenShare() {
   const videoTracks = store.mediaStream.getVideoTracks();
   const isVideoEnabled = videoTracks.some(track => track.readyState === 'live') && !store.isCameraOff;
   const isScreenSharingEnabled =  videoTracks.some(track => track.readyState === 'live') && store.isScreenSharing;
-  console.log('[screen] results: ', isVideoEnabled, isScreenSharingEnabled);
 
 
   if (isVideoEnabled) {
-    console.log('[screen] removing video');
     await toggleCamera();
   }
   
   if (!isScreenSharingEnabled) {
-    console.log('[screen] adding screen');
     const newStream = await navigator.mediaDevices.getDisplayMedia({
       video: true,
       audio: false
@@ -503,82 +503,6 @@ async function toggleScreenShare() {
     peer.send(JSON.stringify({ type: 'video-status', enabled: false }));
     store.toggleScreenSharing(false);
   }
-
-
-
-  // if (store.mediaStream) {
-  //   if (isScreenSharing.value) {
-  //     store.mediaStream.getTracks().forEach(track => track.stop());
-  //     store.mediaStream = null;
-  //     isScreenSharing.value = false;
-  //     store.getMediaStream("video").then(stream => {
-  //       const currentFriendId = getFriendUid(store.activeFriend);
-  //       if (currentFriendId && currentFriendId in store.peers) {
-  //         store.peers[currentFriendId].send(
-  //           JSON.stringify({
-  //             type: "streamReset",
-  //             data: {
-  //               changeType: "video",
-  //               timestamp: Date.now()
-  //             }
-  //           })
-  //         );
-  //         cleanupVideoElements();
-  //         const peer = store.peers[currentFriendId];
-  //         if (peer.streams && peer.streams.length > 0) {
-  //           console.log(`Removing ${peer.streams.length} existing streams`);
-  //           [...peer.streams].forEach(oldStream => {
-  //             peer.removeStream(oldStream);
-  //           });
-  //         }
-  //         setTimeout(() => {
-  //           peer.addStream(stream);
-  //           showLocalVideoPreview(stream);
-  //         }, 200);
-  //       }
-  //     });
-  //   } else {
-  //     const oldStream = store.mediaStream;
-  //     store.mediaStream = null;
-  //     store.getMediaStream("screen").then(stream => {
-  //       const videoTrack = stream.getVideoTracks()[0];
-  //       if (videoTrack) {
-  //         videoTrack.onended = () => {
-  //           isScreenSharing.value = false;
-  //           toggleScreenShare();
-  //         };
-  //         const currentFriendId = getFriendUid(store.activeFriend);
-  //         if (currentFriendId && currentFriendId in store.peers) {
-  //           store.peers[currentFriendId].send(
-  //             JSON.stringify({
-  //               type: "streamReset",
-  //               data: {
-  //                 changeType: "screen",
-  //                 timestamp: Date.now()
-  //               }
-  //             })
-  //           );
-  //           cleanupVideoElements();
-  //           if (oldStream) {
-  //             oldStream.getTracks().forEach(track => track.stop());
-  //           }
-  //           const peer = store.peers[currentFriendId];
-  //           if (peer.streams && peer.streams.length > 0) {
-  //             console.log(`Removing ${peer.streams.length} existing streams`);
-  //             [...peer.streams].forEach(oldStream => {
-  //               peer.removeStream(oldStream);
-  //             });
-  //           }
-  //           setTimeout(() => {
-  //             peer.addStream(stream);
-  //             showLocalVideoPreview(stream);
-  //           }, 200);
-  //         }
-  //       }
-  //       isScreenSharing.value = true;
-  //     });
-  //   }
-  // }
 }
 
 function cleanupVideoElements() {

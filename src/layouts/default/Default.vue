@@ -64,7 +64,7 @@
             <v-col align="center">
               <div class="pulse">
                 <v-avatar size="70">
-                  <v-img :src="store.activeFriend.avatar" />
+                  <v-img :src="store.activeFriend.photoURL" />
                 </v-avatar>
               </div>
             </v-col>

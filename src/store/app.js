@@ -37,7 +37,7 @@ export const useAppStore = defineStore("app", {
     isScreenSharing: false,
     isMuted: false,
     eventQueue: [],
-    isCalling: false,
+    isPopUpCallActive: false,
     incommingCallInfo: null,
     isLogged: false,
     friends: {
@@ -473,11 +473,11 @@ export const useAppStore = defineStore("app", {
 
       this.$reset();
     },
-    setCallingAsActive() {
-      this.isCalling = true;
+    setPopUpCallingAsActive() {
+      this.isPopUpCallActive = true;
     },
-    setCallingAsInactive() {
-      this.isCalling = false;
+    setPopUpCallingAsInactive() {
+      this.isPopUpCallActive = false;
     },
     setCallInactive() {
       this.currentCallInfo = null;
@@ -525,6 +525,7 @@ export const useAppStore = defineStore("app", {
       this.sounds.call.pause();
       this.sounds.call.currentTime = 0;
       this.setCallInactive();
+      this.setPopUpCallingAsInactive();
     },
     /**
      * Adds a media stream to the peer connection for a specified friend.
