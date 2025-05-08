@@ -98,7 +98,7 @@ export const useAppStore = defineStore("app", {
 
       this.signalRConnection = new HubConnectionBuilder()
         .withUrl(
-          `http://192.168.0.77:5285/signal?UserID=${this.currentUser.uid}`,
+          `http://4.228.58.6:5002/signal?UserID=${this.currentUser.uid}`,
           { withCredentials: false }
         )
         .withAutomaticReconnect()

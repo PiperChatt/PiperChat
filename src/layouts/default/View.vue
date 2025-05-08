@@ -144,7 +144,11 @@ watch(() => {
 
 
 function createSimplePeerForActiveFriend() {
-  if(store.activeFrindIsConnected()) return;
+  if(store.isConnectionCreatedForActiveFriend()) {
+    console.log('ai que delicia')
+    return;
+  }
+  removeStream(store.activeFriend.uid, 'both');
   const configuration = getConfiguration();
   const currentFriend = store.activeFriend;
   const currentFriendId = currentFriend.uid;
@@ -380,18 +384,26 @@ const removeStream = (userId, kind='both') => {
   try {
     const videoContainer = document.getElementById("videos")
     if (kind === 'video' || kind === 'both') {
-      const videoElement = document.getElementById(`${userId}-video`)
-      const videoTracks = videoElement.srcObject.getVideoTracks()
-      videoTracks.forEach(t => t.stop())
-      videoElement.srcObject = null
-      videoContainer.removeChild(videoElement)
+      try {
+        const videoElement = document.getElementById(`${userId}-video`)
+        const videoTracks = videoElement.srcObject.getVideoTracks()
+        videoTracks.forEach(t => t.stop())
+        videoElement.srcObject = null
+        videoContainer.removeChild(videoElement)
+      } catch (e) {
+        console.log('[removeStream] erro ao remover track de video');
+      }
     }
     if (kind === 'audio' || kind === 'both') {
-      const audioElement = document.getElementById(`${userId}-audio`)
-      const audioTracks = audioElement.srcObject.getAudioTracks()
-      audioTracks.forEach(t => t.stop())
-      audioElement.srcObject = null
-      videoContainer.removeChild(audioElement)
+      try {
+        const audioElement = document.getElementById(`${userId}-audio`)
+        const audioTracks = audioElement.srcObject.getAudioTracks()
+        audioTracks.forEach(t => t.stop())
+        audioElement.srcObject = null
+        videoContainer.removeChild(audioElement)
+      } catch (e) {
+        console.log('[removeStream] erro ao remover track de audio');
+      }
     }
 
 
