@@ -51,6 +51,7 @@ export const useAppStore = defineStore("app", {
       Name: "",
       avatar: "https://cdn.vuetifyjs.com/images/john.png",
       displayName: "",
+      uid: ''
     },
     signalQueue: {
       pendingFriendsToCheck: [],
@@ -136,6 +137,7 @@ export const useAppStore = defineStore("app", {
 
               peer.on("data", async (data) => {
                 const message = JSON.parse(data);
+
                 if (message.type === "message") {
                   let friend = this.friends.list.find(
                     (friend) => friend.data.uid === friendId
@@ -176,6 +178,7 @@ export const useAppStore = defineStore("app", {
                     },
                   });
                 } else if (message.type === "callAccepted") {
+                  this.setPopUpCallingAsInactive();
                   this.acceptCall();
                   await this.addStreamToPeerConnection(
                     this.friends.dict[friendId].data,
@@ -224,7 +227,6 @@ export const useAppStore = defineStore("app", {
               })
 
               peer.on("connect", () => {
-                console.log("Connected to peer:", friendId);
                 this.setActiveFriendAsConnected();
               });
 
@@ -369,7 +371,10 @@ export const useAppStore = defineStore("app", {
         this.activeFriend.connected = true;
       }
     },
-    activeFrindIsConnected() {
+    isConnectionCreatedForActiveFriend() {
+      return this.activeFriend.uid in this.peers && !(this.peers[this.activeFriend.uid].closed || this.peers[this.activeFriend.uid].destroyed);
+    },
+     activeFrindIsConnected() {
       if (isObject(this.activeFriend)) {
         return !!this.activeFriend.connected;
       }

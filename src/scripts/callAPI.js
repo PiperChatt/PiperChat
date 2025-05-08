@@ -55,7 +55,7 @@ async function notifyCallToUserV2(friend, callType) {
           audio.pause();
           store.rejectCall(friend);
           store.callRejected();
-          this.setPopUpCallingAsInactive();
+          store.setPopUpCallingAsInactive();
 
         }
       },

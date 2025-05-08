@@ -58,7 +58,7 @@
       <default-bar @force-friend-connect="handleForceFriendConnect"/>
       <default-view ref="friendView" :selectedFriend="selectedFriend" />
       <!-- Starting call dialog -->
-      <v-dialog v-model="store.isCalling" max-width="500">
+      <v-dialog v-model="store.isPopUpCallActive" max-width="500">
         <v-card title="Calling">
           <v-row class="pa-6">
             <v-col align="center">
@@ -140,6 +140,12 @@ async function tryAddFriend(isActive) {
   isActive.value = false;
 }
 
+async function dismissInitiatedCall() {
+  store.setCallInactive();
+  store.setPopUpCallingAsInactive();
+  store.rejectCall(store.activeFriend);
+}
+
 watch(() => store.eventQueue[0], (event) => {
   console.log("Event queue", event);
 
@@ -198,6 +204,7 @@ async function onAcceptCallClick() {
   store.setActiveCall(userCalling)
   store.addStreamToPeerConnection(userCalling, callType);
   store.peers[userCalling.uid].send(JSON.stringify({ type: 'callAccepted', data: { callType } }));
+  store.setPopUpCallingAsInactive();
   store.acceptCall();
   if (callType === 'audio') {
     store.toggleCallasOnlyAudio(true);

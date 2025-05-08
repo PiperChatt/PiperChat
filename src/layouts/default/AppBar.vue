@@ -48,7 +48,7 @@ function executeQuery() {
 
 function initiateVideoCall() {
   store.setActiveCall(store.activeFriend);
-  const isFriendConnected = store.activeFrindIsConnected();
+  const isFriendConnected = store.isConnectionCreatedForActiveFriend();
   if (isFriendConnected) {
     startVideoCall(store.activeFriend);
   } else {
@@ -56,7 +56,7 @@ function initiateVideoCall() {
     const connectionAwaiterControl = setInterval(() => {
       connectionAttempts += 1;
       emit('force-friend-connect');
-      if (store.activeFrindIsConnected(true)) {
+      if (store.isConnectionCreatedForActiveFriend()) {
         clearInterval(connectionAwaiterControl);
         startVideoCall(store.activeFriend);
       } else if (connectionAttempts === 3) {
@@ -70,7 +70,7 @@ function initiateVideoCall() {
 
 function initiateAudioCall() {
   store.setActiveCall(store.activeFriend);
-  const isFriendConnected = store.activeFrindIsConnected();
+  const isFriendConnected = store.isConnectionCreatedForActiveFriend();
   if (isFriendConnected) {
     startAudioCall(store.activeFriend);
   } else {
@@ -78,7 +78,7 @@ function initiateAudioCall() {
     const connectionAwaiterControl = setInterval(() => {
       connectionAttempts += 1;
       emit('force-friend-connect');
-      if (store.activeFrindIsConnected(true)) {
+      if (store.isConnectionCreatedForActiveFriend(true)) {
         clearInterval(connectionAwaiterControl);
         startAudioCall(store.activeFriend);
       } else if (connectionAttempts === 3) {

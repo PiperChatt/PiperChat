@@ -113,13 +113,13 @@ watch(() => store.friends.dict[store.activeFriend.uid]?.status, (newStatus) => {
   const activeFriend = store.activeFriend.uid;
   console.log('watching friendsDict', activeFriend);
 
-  if (isConnectionCreatedForActiveFriend()) {
-    console.log('Peer already exists');
+  if (store.isConnectionCreatedForActiveFriend()) {
+    console.log('[connection] Peer already exists');
     return;
   }
 
   if (newStatus == 'online') {
-    console.log('Friend is now online. Creating WebRtConnection');
+    console.log('[connection] Friend is now online. Creating WebRtConnection');
     createSimplePeerForActiveFriend();
   } else {
     console.log('Friend is still offline');
@@ -141,11 +141,10 @@ watch(() => {
 
 
 
-function isConnectionCreatedForActiveFriend() {
-  return store.activeFriend.uid in store.peers && !(store.peers[store.activeFriend.uid].closed || store.peers[store.activeFriend.uid].destroyed);
-}
+
 
 function createSimplePeerForActiveFriend() {
+  if(store.activeFrindIsConnected()) return;
   const configuration = getConfiguration();
   const currentFriend = store.activeFriend;
   const currentFriendId = currentFriend.uid;
@@ -164,7 +163,6 @@ function createSimplePeerForActiveFriend() {
   })
 
   peer.on('connect', () => {
-    console.log('connected');
     store.setActiveFriendAsConnected();
   })
 
@@ -175,9 +173,8 @@ function createSimplePeerForActiveFriend() {
       let friend = store.friends.list.find(friend => friend.data.uid === currentFriendId);
       store.addReceivedMessage(message.data, friend.data.displayName);
     } else if (message.type === 'callAccepted') {
-      console.log('callAccepted');
-      store.acceptCall();
       store.setPopUpCallingAsInactive();
+      store.acceptCall();
       await store.addStreamToPeerConnection(currentFriend, message.data.callType);
       if (message.data.callType === 'audio') {
         store.toggleCallasOnlyAudio(true);
@@ -188,8 +185,6 @@ function createSimplePeerForActiveFriend() {
       await friendHungUp(currentFriend);
     } else if (message.type === "startCall") {
       console.log("CALL received");
-      store.setCallInactive();
-      store.setPopUpCallingAsInactive();
       store.eventQueue.push({
         type: "startCall",
         data: {
