@@ -34,6 +34,7 @@ export const useAppStore = defineStore("app", {
     currentUser: {},
     currentCallInfo: null,
     isCameraOff: false,
+    isScreenSharing: false,
     isMuted: false,
     eventQueue: [],
     isCalling: false,
@@ -418,6 +419,11 @@ export const useAppStore = defineStore("app", {
               facingMode: "user",
             },
           });
+        } else if (callType == "screen") {
+          mediaStream = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+            audio: false
+          });
         }
 
         this.setMediaStream(mediaStream);
@@ -481,6 +487,9 @@ export const useAppStore = defineStore("app", {
     },
     toggleCameraOff(value) {
       this.isCameraOff = value;
+    },
+    toggleScreenSharing(value) {
+      this.isScreenSharing = value;
     },
     toggleIsMutted(value) {
       this.isMuted = value;

@@ -43,6 +43,9 @@
               <v-btn @click="toggleCamera" :color="store.isCameraOff ? 'grey' : 'primary'" icon class="ma-2">
                 <v-icon>{{ store.isCameraOff ? 'mdi-video-off' : 'mdi-video' }}</v-icon>
               </v-btn>
+              <v-btn @click="toggleScreenShare" :color="!store.isScreenSharing ? 'primary' : 'grey'" icon class="ma-2">
+                <v-icon> {{ !store.isScreenSharing ? 'mdi-monitor-share' : 'mdi-monitor-off' }} </v-icon>
+              </v-btn>
               <v-btn @click="hangUp" icon="mdi-phone-hangup" density="default" color="red" class="ma-2">
               </v-btn>
             </v-row>
@@ -98,6 +101,9 @@ const volumeStep = 1;
 const buttomVolumeStep = 10;
 const remoteAudioElement = ref<HTMLAudioElement | null>(null);
 const isVolumeMuted = ref(false); // necessary because vue do not listen for DOM changes
+function getFriendUid(friend) {
+  return friend && 'uid' in friend ? friend.uid : null;
+}
 
 
 const { selectedFriend } = toRefs(props);
@@ -126,6 +132,16 @@ watch(() => audioVolume.value, (newVal, oldVal) => {
   console.log('changed my friend: ', newVal);
   applyAudioVolume();
 })
+
+watch(() => {
+  const uid = getFriendUid(store.activeFriend);
+  return uid ? store.friends.dict[uid]?.status : null;
+}, (newStatus) => {
+  const activeFriendUid = getFriendUid(store.activeFriend);
+  console.log('watching friendsDict', activeFriendUid);
+})
+
+
 
 function isConnectionCreatedForActiveFriend() {
   return store.activeFriend.uid in store.peers && !(store.peers[store.activeFriend.uid].closed || store.peers[store.activeFriend.uid].destroyed);
@@ -268,7 +284,12 @@ async function toggleMute() {
 async function toggleCamera() {
   const peer = store.peers[store.currentCallInfo.friend.uid];
   const videoTracks = store.mediaStream.getVideoTracks();
-  const isVideoEnabled = videoTracks.some(track => track.readyState === 'live');
+  const isVideoEnabled = videoTracks.some(track => track.readyState === 'live') && !store.isCameraOff;
+  const isScreenSharingEnabled =  videoTracks.some(track => track.readyState === 'live') && store.isScreenSharing;
+  console.log('[screen] but camera results: ', isVideoEnabled, isScreenSharingEnabled)
+  if (isScreenSharingEnabled) {
+    await toggleScreenShare();
+  }
 
   if (!isVideoEnabled) {
     const higherResolutions = await getCameraResolutions();
@@ -440,6 +461,154 @@ function applyAudioVolume(): void {
 
 function toggleVolumeMute(): void {
   isVolumeMuted.value = remoteAudioElement.value.muted = !remoteAudioElement.value.muted;
+}
+
+async function toggleScreenShare() {
+  const peer = store.peers[store.currentCallInfo.friend.uid];
+  const videoTracks = store.mediaStream.getVideoTracks();
+  const isVideoEnabled = videoTracks.some(track => track.readyState === 'live') && !store.isCameraOff;
+  const isScreenSharingEnabled =  videoTracks.some(track => track.readyState === 'live') && store.isScreenSharing;
+  console.log('[screen] results: ', isVideoEnabled, isScreenSharingEnabled);
+
+
+  if (isVideoEnabled) {
+    console.log('[screen] removing video');
+    await toggleCamera();
+  }
+  
+  if (!isScreenSharingEnabled) {
+    console.log('[screen] adding screen');
+    const newStream = await navigator.mediaDevices.getDisplayMedia({
+      video: true,
+      audio: false
+    });
+
+    const newTrack = newStream.getVideoTracks()[0];
+    store.mediaStream.addTrack(newTrack);
+    peer.addTrack(newTrack, store.mediaStream);
+
+    peer.send(JSON.stringify({ type: 'video-status', enabled: true }));
+    store.toggleScreenSharing(true);
+
+  } else {
+    videoTracks.forEach((track) => {
+      if (track.readyState === 'ended') {
+        store.mediaStream.removeTrack(track);
+        peer.removeTrack(track, store.mediaStream);
+      } else if (track.readyState === 'live') {
+        track.stop();
+      }
+    })
+
+    peer.send(JSON.stringify({ type: 'video-status', enabled: false }));
+    store.toggleScreenSharing(false);
+  }
+
+
+
+  // if (store.mediaStream) {
+  //   if (isScreenSharing.value) {
+  //     store.mediaStream.getTracks().forEach(track => track.stop());
+  //     store.mediaStream = null;
+  //     isScreenSharing.value = false;
+  //     store.getMediaStream("video").then(stream => {
+  //       const currentFriendId = getFriendUid(store.activeFriend);
+  //       if (currentFriendId && currentFriendId in store.peers) {
+  //         store.peers[currentFriendId].send(
+  //           JSON.stringify({
+  //             type: "streamReset",
+  //             data: {
+  //               changeType: "video",
+  //               timestamp: Date.now()
+  //             }
+  //           })
+  //         );
+  //         cleanupVideoElements();
+  //         const peer = store.peers[currentFriendId];
+  //         if (peer.streams && peer.streams.length > 0) {
+  //           console.log(`Removing ${peer.streams.length} existing streams`);
+  //           [...peer.streams].forEach(oldStream => {
+  //             peer.removeStream(oldStream);
+  //           });
+  //         }
+  //         setTimeout(() => {
+  //           peer.addStream(stream);
+  //           showLocalVideoPreview(stream);
+  //         }, 200);
+  //       }
+  //     });
+  //   } else {
+  //     const oldStream = store.mediaStream;
+  //     store.mediaStream = null;
+  //     store.getMediaStream("screen").then(stream => {
+  //       const videoTrack = stream.getVideoTracks()[0];
+  //       if (videoTrack) {
+  //         videoTrack.onended = () => {
+  //           isScreenSharing.value = false;
+  //           toggleScreenShare();
+  //         };
+  //         const currentFriendId = getFriendUid(store.activeFriend);
+  //         if (currentFriendId && currentFriendId in store.peers) {
+  //           store.peers[currentFriendId].send(
+  //             JSON.stringify({
+  //               type: "streamReset",
+  //               data: {
+  //                 changeType: "screen",
+  //                 timestamp: Date.now()
+  //               }
+  //             })
+  //           );
+  //           cleanupVideoElements();
+  //           if (oldStream) {
+  //             oldStream.getTracks().forEach(track => track.stop());
+  //           }
+  //           const peer = store.peers[currentFriendId];
+  //           if (peer.streams && peer.streams.length > 0) {
+  //             console.log(`Removing ${peer.streams.length} existing streams`);
+  //             [...peer.streams].forEach(oldStream => {
+  //               peer.removeStream(oldStream);
+  //             });
+  //           }
+  //           setTimeout(() => {
+  //             peer.addStream(stream);
+  //             showLocalVideoPreview(stream);
+  //           }, 200);
+  //         }
+  //       }
+  //       isScreenSharing.value = true;
+  //     });
+  //   }
+  // }
+}
+
+function cleanupVideoElements() {
+  console.log("Thoroughly cleaning up ALL video elements");
+  const videoContainer = document.getElementById("videos");
+  if (videoContainer) {
+    console.log(`Video container has ${videoContainer.childNodes.length} children before cleanup`);
+    const videoElements = videoContainer.querySelectorAll('video');
+    videoElements.forEach(video => {
+      if (video.srcObject) {
+        try {
+          const tracks = video.srcObject.getTracks();
+          if (tracks) {
+            tracks.forEach(track => {
+              track.stop();
+              console.log(`Stopped track: ${track.kind}`);
+            });
+          }
+          video.srcObject = null;
+          video.pause();
+        } catch (e) {
+          console.error("Error stopping tracks", e);
+        }
+      }
+    });
+    while (videoContainer.firstChild) {
+      videoContainer.removeChild(videoContainer.firstChild);
+    }
+    console.log(`Video container has ${videoContainer.childNodes.length} children after cleanup`);
+  }
 }
 
 defineExpose({
