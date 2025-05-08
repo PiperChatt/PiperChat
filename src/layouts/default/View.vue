@@ -1,7 +1,7 @@
 <template>
   <v-main>
     <v-container class="fill-height pa-0 d-flex flex-column">
-      <div v-if="store.getVideoCallStatus && !store.isPopUpCallActive" class="video-section">
+      <div v-if="store.getVideoCallStatus && !store.isPopUpCallActive" v-show="store.currentCallInfo.friend.uid === store.activeFriend.uid" class="video-section">
         <v-row class="video-container ma-0">
           <v-col :cols="12" class="video-col pa-0">
             <div v-show="!store.currentCallInfo.audioCall" id="videos" class="videos-container">
@@ -87,6 +87,7 @@ import { watchRoom, joinRoom, saveUserSignal, getConfiguration, saveReadyUser, S
 import SimplePeer from 'simple-peer/simplepeer.min.js';
 import { isOnlyAudioCall } from '@/utils/tracks';
 import { getCameraResolutions } from "@/utils/camera";
+import { remove } from 'firebase/database';
 
 const props = defineProps({
   selectedFriend: String,
@@ -107,6 +108,8 @@ function getFriendUid(friend) {
 const { selectedFriend } = toRefs(props);
 
 const audioVolume = ref(100)
+const forceUpdateTrigger = ref(0);
+
 
 // TODO: O status de "Em chamada" é global. Então, quando troca de usuário, o vídeo vai permanecer na tela. Mudar esse estado para estar atrelado ao usuário selecionado.'
 watch(() => store.friends.dict[store.activeFriend.uid]?.status, (newStatus) => {
@@ -145,10 +148,9 @@ watch(() => {
 
 function createSimplePeerForActiveFriend() {
   if(store.isConnectionCreatedForActiveFriend()) {
-    console.log('ai que delicia')
     return;
   }
-  removeStream(store.activeFriend.uid, 'both');
+  // store.setCallInactive();
   const configuration = getConfiguration();
   const currentFriend = store.activeFriend;
   const currentFriendId = currentFriend.uid;
@@ -226,6 +228,11 @@ function createSimplePeerForActiveFriend() {
     store.peers[currentFriendId].destroy();
     delete store.peers[currentFriendId];
     console.log('close: ', data)
+    if (currentFriend == store.currentCallInfo.friend.uid) {
+      removeStream(currentFriendId, 'both');
+      store.setCallInactive();
+      freeCam();
+    }
   })
   peer.on('error', (data) => {
     console.log('error', data)
@@ -390,8 +397,9 @@ const removeStream = (userId, kind='both') => {
         videoTracks.forEach(t => t.stop())
         videoElement.srcObject = null
         videoContainer.removeChild(videoElement)
+        forceUpdateTrigger.value++;
       } catch (e) {
-        console.log('[removeStream] erro ao remover track de video');
+        console.error('[removeStream] erro ao remover track de video', e);
       }
     }
     if (kind === 'audio' || kind === 'both') {
@@ -401,8 +409,9 @@ const removeStream = (userId, kind='both') => {
         audioTracks.forEach(t => t.stop())
         audioElement.srcObject = null
         videoContainer.removeChild(audioElement)
+        forceUpdateTrigger.value++;
       } catch (e) {
-        console.log('[removeStream] erro ao remover track de audio');
+        console.error('[removeStream] erro ao remover track de audio', e);
       }
     }
 
