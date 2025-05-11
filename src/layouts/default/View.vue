@@ -308,7 +308,7 @@ async function toggleCamera() {
       },
       audio: false, // você já tem áudio da chamada anterior
     });
-    
+
     const newTrack = newStream.getVideoTracks()[0];
     // store.mediaStream.addTrack(newTrack)
     // Realiza o replace
@@ -328,8 +328,8 @@ async function toggleCamera() {
       }
 
     })
-    
-    
+
+
     peer.send(JSON.stringify({ type: 'video-status', enabled: false }));
     store.isCameraOff = true;
 
@@ -361,7 +361,7 @@ const addTrack = (track, userId) => {
     videoContainer.appendChild(audioElement);
 
     remoteAudioElement.value = audioElement;
-    
+
   } else if (track.kind === 'video') {
     const videoElement = document.createElement('video');
     videoElement.setAttribute('playsinline', 'true');
@@ -375,11 +375,11 @@ const addTrack = (track, userId) => {
     videoElement.style.width = "100%";
     videoElement.style.height = "100%";
     videoElement.style.margin = "0 auto";
-    
+
     videoElement.onloadedmetadata = () => {
       videoElement.play();
     };
-    
+
     videoContainer.appendChild(videoElement);
     store.toggleCallasOnlyAudio(false);
   }
@@ -492,7 +492,7 @@ async function toggleScreenShare() {
   if (isVideoEnabled) {
     await toggleCamera();
   }
-  
+
   if (!isScreenSharingEnabled) {
     const newStream = await navigator.mediaDevices.getDisplayMedia({
       video: true,
@@ -651,10 +651,11 @@ span {
   flex-direction: column;
   flex-grow: 1;
   width: 100%;
-  height: 100%;
+  height: calc(80vh);
   overflow: hidden;
   position: relative;
   padding-bottom: 80px;
+  margin-bottom: 50px;
 }
 
 .chat-with-video {
