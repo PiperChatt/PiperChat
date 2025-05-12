@@ -51,7 +51,7 @@
       </v-row>
       </div>
       <div class="list-container pa-6" :class="{ 'chat-with-video': store.getVideoCallStatus && userVideoLoaded }">
-        <div class="messages">
+        <div class="messages" ref="messageContainer">
           <div v-for="(chatMessage, i) in store.getMessages(selectedFriend)" :key="chatMessage">
             <div class="userMessage tw-flex" v-if="('Me' in chatMessage)">
               <v-avatar :image="store.currentUser.photoURL" size="45"></v-avatar>
@@ -100,6 +100,7 @@ const volumeStep = 1;
 const buttomVolumeStep = 10;
 const remoteAudioElement = ref<HTMLAudioElement | null>(null);
 const isVolumeMuted = ref(false); // necessary because vue do not listen for DOM changes
+const messageContainer = ref<HTMLElement | null>(null);
 function getFriendUid(friend) {
   return friend && 'uid' in friend ? friend.uid : null;
 }
@@ -142,7 +143,13 @@ watch(() => {
   console.log('watching friendsDict', activeFriendUid);
 })
 
-
+watch(() => store.getMessages(selectedFriend.value), (newMessages, oldMessages) => {
+  nextTick(() => {
+    if (messageContainer.value) {
+      messageContainer.value.scrollTop = messageContainer.value.scrollHeight;
+    }
+  });
+}, { deep: true }); // Use deep watch if messages are objects and their properties might change
 
 
 
