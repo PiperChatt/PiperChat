@@ -38,6 +38,7 @@ import { startVideoCall, startAudioCall } from '@/scripts/callAPI';
 const query = ref();
 
 const store = useAppStore();
+const emit = defineEmits(['force-friend-connect']);
 
 const callUnsubscribeVar = null;
 
@@ -46,11 +47,47 @@ function executeQuery() {
 }
 
 function initiateVideoCall() {
-  startVideoCall(store.activeFriend);
+  store.setActiveCall(store.activeFriend);
+  const isFriendConnected = store.isConnectionCreatedForActiveFriend();
+  if (isFriendConnected) {
+    startVideoCall(store.activeFriend);
+  } else {
+    let connectionAttempts = 0;
+    const connectionAwaiterControl = setInterval(() => {
+      connectionAttempts += 1;
+      emit('force-friend-connect');
+      if (store.isConnectionCreatedForActiveFriend()) {
+        clearInterval(connectionAwaiterControl);
+        startVideoCall(store.activeFriend);
+      } else if (connectionAttempts === 3) {
+        console.error('Video call not possible');
+        store.setCurrentCallAsInactive();
+        clearInterval(connectionAwaiterControl);
+      }
+    }, 1000)
+  }
 }
 
 function initiateAudioCall() {
-  startAudioCall(store.activeFriend);
+  store.setActiveCall(store.activeFriend);
+  const isFriendConnected = store.isConnectionCreatedForActiveFriend();
+  if (isFriendConnected) {
+    startAudioCall(store.activeFriend);
+  } else {
+    let connectionAttempts = 0;
+    const connectionAwaiterControl = setInterval(() => {
+      connectionAttempts += 1;
+      emit('force-friend-connect');
+      if (store.isConnectionCreatedForActiveFriend(true)) {
+        clearInterval(connectionAwaiterControl);
+        startAudioCall(store.activeFriend);
+      } else if (connectionAttempts === 3) {
+        console.error('Audio call not possible');
+        store.setCurrentCallAsInactive();
+        clearInterval(connectionAwaiterControl);
+      }
+    }, 1000)
+  }
 }
 
 </script>

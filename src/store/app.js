@@ -3,7 +3,9 @@ import { defineStore } from "pinia";
 import { HubConnectionBuilder } from "@microsoft/signalr";
 import SimplePeer from "simple-peer/simplepeer.min.js";
 import { useSoundStore } from "@/store/sounds";
-import { getCameraResolutions, testCameraResolutions } from "@/utils/camera";
+import { getCameraResolutions } from "@/utils/camera";
+import { isOnlyAudioCall } from "@/utils/tracks";
+import { isObject } from "@/utils/dataManipulation";
 
 export const useAppStore = defineStore("app", {
   state: () => ({
@@ -31,8 +33,11 @@ export const useAppStore = defineStore("app", {
     },
     currentUser: {},
     currentCallInfo: null,
+    isCameraOff: false,
+    isScreenSharing: false,
+    isMuted: false,
     eventQueue: [],
-    isCalling: false,
+    isPopUpCallActive: false,
     incommingCallInfo: null,
     isLogged: false,
     friends: {
@@ -46,6 +51,7 @@ export const useAppStore = defineStore("app", {
       Name: "",
       avatar: "https://cdn.vuetifyjs.com/images/john.png",
       displayName: "",
+      uid: ''
     },
     signalQueue: {
       pendingFriendsToCheck: [],
@@ -92,7 +98,7 @@ export const useAppStore = defineStore("app", {
 
       this.signalRConnection = new HubConnectionBuilder()
         .withUrl(
-          `http://localhost:5285/signal?UserID=${this.currentUser.uid}`,
+          `http://4.228.58.6:5002/signal?UserID=${this.currentUser.uid}`,
           { withCredentials: false }
         )
         .withAutomaticReconnect()
@@ -131,6 +137,7 @@ export const useAppStore = defineStore("app", {
 
               peer.on("data", async (data) => {
                 const message = JSON.parse(data);
+
                 if (message.type === "message") {
                   let friend = this.friends.list.find(
                     (friend) => friend.data.uid === friendId
@@ -171,39 +178,65 @@ export const useAppStore = defineStore("app", {
                     },
                   });
                 } else if (message.type === "callAccepted") {
-                  console.warn("Call accepted - CAIU AQUI.");
+                  this.setPopUpCallingAsInactive();
                   this.acceptCall();
                   await this.addStreamToPeerConnection(
                     this.friends.dict[friendId].data,
                     message.data.callType
                   );
+                  
+                } else if (message.type === 'video-status') {
+                  if (message.enabled === false) {
+                    this.toggleCallasOnlyAudio(true)
+                    this.eventQueue.push({
+                      type: "removeStream",
+                      data: {
+                        type: 'video',
+                        userCalling: this.friends.dict[friendId].data,
+                      },
+                    });
+                  }
+                } else if (message.type === 'audio-status') {
+                  if (message.enabled === false) {
+                    this.eventQueue.push({
+                      type: "removeStream",
+                      data: {
+                        type: 'audio',
+                        userCalling: this.friends.dict[friendId].data,
+                      },
+                    });
+                  }
                 }
 
                 console.log("Data received: ", message);
               });
 
               peer.on("stream", (stream) => {
-                console.log("recebi a stream");
+                this.toggleCallasOnlyAudio(isOnlyAudioCall(stream))
+              });
+
+              peer.on('track', (track, stream) => {
                 this.eventQueue.push({
                   type: "stream",
                   data: {
-                    stream,
+                    stream: track,
                     userCalling: this.friends.dict[friendId].data,
                   },
                 });
-              });
+            
+              })
 
               peer.on("connect", () => {
-                console.log("Connected to peer:", friendId);
+                this.setActiveFriendAsConnected();
               });
 
               peer.on("close", () => {
                 this.cleanupPeerConnection(friendId);
-                console.log("Peer connection closed:", friendId);
+                console.log("[toggle]Peer connection closed:", friendId);
               });
 
               peer.on("error", (err) => {
-                console.error("Peer connection error:", err);
+                console.error("[toggle]Peer connection error:", err);
                 this.cleanupPeerConnection(friendId);
               });
             }
@@ -333,6 +366,20 @@ export const useAppStore = defineStore("app", {
         this.friends.unreadMessages[friend.uid] = false;
       }
     },
+    setActiveFriendAsConnected() {
+      if (isObject(this.activeFriend)) {
+        this.activeFriend.connected = true;
+      }
+    },
+    isConnectionCreatedForActiveFriend() {
+      return this.activeFriend.uid in this.peers && !(this.peers[this.activeFriend.uid].closed || this.peers[this.activeFriend.uid].destroyed);
+    },
+     activeFrindIsConnected() {
+      if (isObject(this.activeFriend)) {
+        return !!this.activeFriend.connected;
+      }
+      return false;
+    },
     setFriendsList(friends) {
       this.friends.list = friends;
     },
@@ -352,11 +399,11 @@ export const useAppStore = defineStore("app", {
           });
         }
 
-        if (this.mediaStream) {
-          return this.mediaStream;
-        }
+        // if (this.mediaStream) {
+        //   return this.mediaStream;
+        // }
 
-        console.log("Creating new media stream");
+        console.log("[toggle]Creating new media stream");
 
         this.mediaStreamLoading = true;
         const higherResolutions = await getCameraResolutions();
@@ -376,6 +423,11 @@ export const useAppStore = defineStore("app", {
               height: higherResolutions[0].resolutions.height,
               facingMode: "user",
             },
+          });
+        } else if (callType == "screen") {
+          mediaStream = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+            audio: false
           });
         }
 
@@ -426,20 +478,35 @@ export const useAppStore = defineStore("app", {
 
       this.$reset();
     },
-    setCallingAsActive() {
-      this.isCalling = true;
+    setPopUpCallingAsActive() {
+      this.isPopUpCallActive = true;
     },
-    setCallingAsInactive() {
-      this.isCalling = false;
+    setPopUpCallingAsInactive() {
+      this.isPopUpCallActive = false;
     },
     setCallInactive() {
       this.currentCallInfo = null;
+    },
+    toggleCallasOnlyAudio(value) {
+      this.currentCallInfo.audioCall = value;
+    },
+    toggleCameraOff(value) {
+      this.isCameraOff = value;
+    },
+    toggleScreenSharing(value) {
+      this.isScreenSharing = value;
+    },
+    toggleIsMutted(value) {
+      this.isMuted = value;
     },
     setActiveCall(friend) {
       this.currentCallInfo = {
         active: true,
         friend,
       };
+    },
+    setCurrentCallAsInactive() {
+      this.currentCallInfo = null;
     },
     acceptCall() {
       this.sounds.call.pause();
@@ -463,6 +530,7 @@ export const useAppStore = defineStore("app", {
       this.sounds.call.pause();
       this.sounds.call.currentTime = 0;
       this.setCallInactive();
+      this.setPopUpCallingAsInactive();
     },
     /**
      * Adds a media stream to the peer connection for a specified friend.

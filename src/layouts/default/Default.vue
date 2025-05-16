@@ -55,16 +55,16 @@
           </v-list-item>
         </v-list>
       </v-navigation-drawer>
-      <default-bar />
+      <default-bar @force-friend-connect="handleForceFriendConnect"/>
       <default-view ref="friendView" :selectedFriend="selectedFriend" />
       <!-- Starting call dialog -->
-      <v-dialog v-model="store.isCalling" max-width="500">
+      <v-dialog v-model="store.isPopUpCallActive" max-width="500">
         <v-card title="Calling">
           <v-row class="pa-6">
             <v-col align="center">
               <div class="pulse">
                 <v-avatar size="70">
-                  <v-img :src="store.activeFriend.avatar" />
+                  <v-img :src="store.activeFriend.photoURL" />
                 </v-avatar>
               </div>
             </v-col>
@@ -140,6 +140,12 @@ async function tryAddFriend(isActive) {
   isActive.value = false;
 }
 
+async function dismissInitiatedCall() {
+  store.setCallInactive();
+  store.setPopUpCallingAsInactive();
+  store.rejectCall(store.activeFriend);
+}
+
 watch(() => store.eventQueue[0], (event) => {
   console.log("Event queue", event);
 
@@ -149,7 +155,10 @@ watch(() => store.eventQueue[0], (event) => {
     } else if (event.type == "stream") {
       console.log(friendView.value);
 
-      friendView.value.addStream(event.data.stream, event.data.userCalling.uid);
+      friendView.value.addTrack(event.data.stream, event.data.userCalling.uid);
+    } else if (event.type == 'removeStream') {
+      friendView.value.removeStream( event.data.userCalling.uid, event.data.type);
+
     } else if (event.type == 'callRejected') {
       incommingCall.value = {
         active: false,
@@ -195,7 +204,12 @@ async function onAcceptCallClick() {
   store.setActiveCall(userCalling)
   store.addStreamToPeerConnection(userCalling, callType);
   store.peers[userCalling.uid].send(JSON.stringify({ type: 'callAccepted', data: { callType } }));
+  store.setPopUpCallingAsInactive();
   store.acceptCall();
+  if (callType === 'audio') {
+    store.toggleCallasOnlyAudio(true);
+    store.toggleCameraOff(true);
+  }
   incommingCall.value = {
     active: false,
     userCalling: null,
@@ -216,6 +230,10 @@ async function signOut() {
   } catch (error) {
     console.log("Error while signing out");
   }
+}
+
+function handleForceFriendConnect() {
+  friendView.value.createSimplePeerForActiveFriend();
 }
 
 </script>

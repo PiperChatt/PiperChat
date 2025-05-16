@@ -3,26 +3,12 @@ import { useAppStore } from "@/store/app";
 import { db } from "@/firebase";
 import {
   ref,
-  runTransaction,
-  onValue,
-  update,
   remove,
 } from "firebase/database";
-import { getUserInfoByUID } from "@/firebase/userHelper";
-import { v4 as uuidv4 } from "uuid";
-import { createRoom } from "./signalingAPI";
-import { generateRoomKey } from "@/firebase/userHelper";
 
 const store = useAppStore();
 const sounds = useSoundStore();
 
-async function startWebRtcSignaling(friend) {
-  const roomKey = generateRoomKey(
-    store.currentUser.uid,
-    store.activeFriend.uid
-  );
-  const roomRef = ref(db, `rooms/${roomKey}`);
-}
 
 function waitFor(millisec) {
   return new Promise((resolve) => {
@@ -36,6 +22,7 @@ async function notifyCallToUserV2(friend, callType) {
   let audio = sounds.call;
   audio.currentTime = 0;
   audio.loop = true;
+  store.setPopUpCallingAsActive();
 
   try {
     await audio.play();
@@ -68,6 +55,8 @@ async function notifyCallToUserV2(friend, callType) {
           audio.pause();
           store.rejectCall(friend);
           store.callRejected();
+          store.setPopUpCallingAsInactive();
+
         }
       },
       10000,
@@ -100,6 +89,7 @@ async function notifyCallToUserV2(friend, callType) {
   audio.pause();
   store.rejectCall(friend);
   store.callRejected();
+  this.setPopUpCallingAsInactive();
 }
 
 export async function startVideoCall(friend) {
@@ -113,15 +103,9 @@ export async function startAudioCall(friend) {
 async function startCall(friend, callType) {
   console.log(friend);
   store.getMediaStream(callType);
-  store.setActiveCall(friend);
+  if(callType === 'audio') {
+    console.log('[debug] cai aqui');
+    store.toggleCameraOff(true);
+  }
   await notifyCallToUserV2(friend, callType);
-}
-
-function deleteCallRoom() {
-  const documentRef = ref(db, `room/${store.incommingCallInfo.roomId}`);
-  remove(documentRef, null)
-    .then(() => {})
-    .catch((error) => {
-      console.error("Error removing document: ", error);
-    });
 }
